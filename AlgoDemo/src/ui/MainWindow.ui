@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1280</width>
+    <height>860</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>晶圆厚度算法 Demo</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <widget class="QGroupBox" name="groupLoad">
+      <property name="title">
+       <string>数据载入区</string>
+      </property>
+      <layout class="QGridLayout" name="gridLoad">
+       <item row="0" column="0">
+        <widget class="QPushButton" name="btnSelectFile">
+         <property name="text">
+          <string>选择 CSV 文件</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QPushButton" name="btnSelectDir">
+         <property name="text">
+          <string>选择 CSV 目录</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="2">
+        <widget class="QPushButton" name="btnClear">
+         <property name="text">
+          <string>清空数据</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="3">
+        <widget class="QLineEdit" name="lineEditPath">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0" colspan="4">
+        <widget class="QPlainTextEdit" name="textSummary">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>54</height>
+          </size>
+         </property>
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="QGroupBox" name="groupParams">
+      <property name="title">
+       <string>参数设置区</string>
+      </property>
+      <layout class="QGridLayout" name="gridParams">
+       <item row="0" column="0"><widget class="QLabel" name="labelLineCount"><property name="text"><string>线数</string></property></widget></item>
+       <item row="0" column="1"><widget class="QSpinBox" name="spinLineCount"><property name="minimum"><number>1</number></property><property name="maximum"><number>8</number></property><property name="value"><number>8</number></property></widget></item>
+       <item row="0" column="2"><widget class="QLabel" name="labelProductSize"><property name="text"><string>产品尺寸</string></property></widget></item>
+       <item row="0" column="3"><widget class="QComboBox" name="comboProductSize"><item><property name="text"><string>6</string></property></item><item><property name="text"><string>8</string></property></item><item><property name="text"><string>12</string></property></item><property name="currentIndex"><number>1</number></property></widget></item>
+       <item row="0" column="4"><widget class="QLabel" name="labelUnit"><property name="text"><string>坐标单位</string></property></widget></item>
+       <item row="0" column="5"><widget class="QComboBox" name="comboUnitMode"><item><property name="text"><string>mm</string></property></item><item><property name="text"><string>um</string></property></item></widget></item>
+       <item row="1" column="0"><widget class="QLabel" name="labelNominal"><property name="text"><string>标称厚度</string></property></widget></item>
+       <item row="1" column="1"><widget class="QDoubleSpinBox" name="spinNominalThickness"><property name="maximum"><double>100000.000000000000000</double></property><property name="decimals"><number>3</number></property><property name="value"><double>762.000000000000000</double></property></widget></item>
+       <item row="1" column="2"><widget class="QLabel" name="labelCalTotal"><property name="text"><string>calibrationTotal</string></property></widget></item>
+       <item row="1" column="3"><widget class="QDoubleSpinBox" name="spinCalibrationTotal"><property name="maximum"><double>100000.000000000000000</double></property><property name="decimals"><number>3</number></property></widget></item>
+       <item row="1" column="4"><widget class="QLabel" name="labelCenterX"><property name="text"><string>centerX</string></property></widget></item>
+       <item row="1" column="5"><widget class="QDoubleSpinBox" name="spinCenterX"><property name="maximum"><double>100000.000000000000000</double></property><property name="decimals"><number>3</number></property><property name="value"><double>142.322000000000003</double></property></widget></item>
+       <item row="2" column="0"><widget class="QLabel" name="labelCenterY"><property name="text"><string>centerY</string></property></widget></item>
+       <item row="2" column="1"><widget class="QDoubleSpinBox" name="spinCenterY"><property name="maximum"><double>100000.000000000000000</double></property><property name="decimals"><number>3</number></property><property name="value"><double>151.896000000000001</double></property></widget></item>
+       <item row="2" column="2"><widget class="QLabel" name="labelTrim"><property name="text"><string>trimSize</string></property></widget></item>
+       <item row="2" column="3"><widget class="QDoubleSpinBox" name="spinTrimSize"><property name="maximum"><double>1000.000000000000000</double></property><property name="decimals"><number>3</number></property></widget></item>
+       <item row="2" column="4"><widget class="QLabel" name="labelChord"><property name="text"><string>chordLength</string></property></widget></item>
+       <item row="2" column="5"><widget class="QDoubleSpinBox" name="spinChordLength"><property name="maximum"><double>1000.000000000000000</double></property><property name="decimals"><number>3</number></property></widget></item>
+       <item row="3" column="0"><widget class="QLabel" name="labelSample"><property name="text"><string>lineSampleNum</string></property></widget></item>
+       <item row="3" column="1"><widget class="QSpinBox" name="spinLineSampleNum"><property name="minimum"><number>3</number></property><property name="maximum"><number>10000</number></property><property name="value"><number>51</number></property></widget></item>
+       <item row="3" column="2"><widget class="QLabel" name="labelRadius"><property name="text"><string>radius</string></property></widget></item>
+       <item row="3" column="3"><widget class="QDoubleSpinBox" name="spinRadius"><property name="maximum"><double>10000.000000000000000</double></property><property name="decimals"><number>3</number></property><property name="value"><double>100.000000000000000</double></property></widget></item>
+       <item row="3" column="4"><widget class="QLabel" name="labelRadiusCut"><property name="text"><string>radiusCut</string></property></widget></item>
+       <item row="3" column="5"><widget class="QDoubleSpinBox" name="spinRadiusCut"><property name="maximum"><double>10000.000000000000000</double></property><property name="decimals"><number>3</number></property></widget></item>
+       <item row="4" column="0"><widget class="QLabel" name="labelTheta"><property name="text"><string>thetaPoints</string></property></widget></item>
+       <item row="4" column="1"><widget class="QSpinBox" name="spinThetaPoints"><property name="minimum"><number>1</number></property><property name="maximum"><number>10000</number></property><property name="value"><number>36</number></property></widget></item>
+       <item row="4" column="2"><widget class="QLabel" name="labelR"><property name="text"><string>rPoints</string></property></widget></item>
+       <item row="4" column="3"><widget class="QSpinBox" name="spinRPoints"><property name="minimum"><number>1</number></property><property name="maximum"><number>10000</number></property><property name="value"><number>20</number></property></widget></item>
+       <item row="4" column="4"><widget class="QLabel" name="labelWindow"><property name="text"><string>windowSize</string></property></widget></item>
+       <item row="4" column="5"><widget class="QSpinBox" name="spinWindowSize"><property name="minimum"><number>1</number></property><property name="maximum"><number>10000000</number></property><property name="value"><number>40000</number></property></widget></item>
+       <item row="5" column="0" colspan="2"><widget class="QCheckBox" name="checkNewBow"><property name="text"><string>useNewBowAlg</string></property><property name="checked"><bool>true</bool></property></widget></item>
+       <item row="5" column="2" colspan="2"><widget class="QCheckBox" name="checkNewWarp"><property name="text"><string>useNewWarpAlg</string></property><property name="checked"><bool>true</bool></property></widget></item>
+       <item row="5" column="4" colspan="2"><widget class="QCheckBox" name="checkUseCsvZGravity"><property name="text"><string>使用 CSV 内 zGravity</string></property><property name="checked"><bool>true</bool></property></widget></item>
+       <item row="6" column="0" colspan="6"><widget class="QCheckBox" name="checkDebugZeroZGravity"><property name="text"><string>如果没有 zGravity，允许设置 zGravity=0 进行调试；仅调试，不是正式补偿结果</string></property></widget></item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="buttonLayout">
+      <item><widget class="QPushButton" name="btnValidate"><property name="text"><string>校验数据</string></property></widget></item>
+      <item><widget class="QPushButton" name="btnRunManual"><property name="text"><string>运行基础 ManualWarp 算法</string></property></widget></item>
+      <item><widget class="QPushButton" name="btnRunNew"><property name="text"><string>运行新 Bow/Warp 算法</string></property></widget></item>
+      <item><widget class="QPushButton" name="btnRunAll"><property name="text"><string>一键运行全部算法</string></property></widget></item>
+      <item><widget class="QPushButton" name="btnExportResult"><property name="text"><string>导出结果 CSV</string></property></widget></item>
+      <item><widget class="QPushButton" name="btnExportDetail"><property name="text"><string>导出明细 CSV</string></property></widget></item>
+     </layout>
+    </item>
+    <item>
+     <widget class="QSplitter" name="splitter">
+      <property name="orientation"><enum>Qt::Vertical</enum></property>
+      <widget class="QTableWidget" name="resultTable"/>
+      <widget class="QTableWidget" name="detailTable"/>
+      <widget class="QTextEdit" name="logText">
+       <property name="readOnly"><bool>true</bool></property>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

@@ -1,0 +1,25 @@
+AGENTS.md
+BIN/
+BaseLib/
+
+# Qt local/generated files
+.qmake.stash
+*.pro.user
+Makefile
+Makefile.*
+moc_*.cpp
+moc_*.obj
+moc_predefs.h
+ui_*.h
+
+# Build outputs
+build/
+debug/
+release/
+*.obj
+*.o
+*.exe
+*.dll
+*.lib
+*.pdb
+*.ilk
