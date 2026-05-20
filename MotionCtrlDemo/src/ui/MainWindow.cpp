@@ -84,8 +84,6 @@ MainWindow::MainWindow(QWidget *parent)
             this, &MainWindow::appendLog);
     connect(&m_controller, &MotionController::errorMessage,
             this, &MainWindow::appendLog);
-    connect(&m_controller, &MotionController::stateNotReady,
-            this, &MainWindow::appendLog);
     connect(&m_controller, &MotionController::positionUpdated,
             this, &MainWindow::onPositionUpdated);
     connect(&m_controller, &MotionController::stateUpdated,
@@ -171,7 +169,7 @@ void MainWindow::onContinuousPositiveClicked()
 
 void MainWindow::onContinuousNegativeClicked()
 {
-    m_controller.moveSingleAxisContinuous(currentAxis(), -1);
+    m_controller.moveSingleAxisContinuous(currentAxis(), 0);
 }
 
 void MainWindow::onSetVelocityClicked()
@@ -274,7 +272,11 @@ void MainWindow::onConnectionChanged(bool connected)
 {
     m_connectionStatusLabel->setText(connected ? zh("\xe5\xb7\xb2\xe8\xbf\x9e\xe6\x8e\xa5") : zh("\xe5\xb7\xb2\xe6\x96\xad\xe5\xbc\x80"));
     updateUiEnabled(connected);
-    if (!connected) {
+    if (connected) {
+        m_controller.readRealTimePos();
+        m_controller.readRealTimeStatus();
+        m_controller.getHomestatus();
+    } else {
         m_readTimer.stop();
         m_autoReadCheck->blockSignals(true);
         m_autoReadCheck->setChecked(false);
@@ -534,8 +536,7 @@ QGroupBox *MainWindow::buildTriggerGroup()
     m_triggerStartSpin = createDoubleSpin(-1000000.0, 1000000.0, 0.0);
     m_triggerEndSpin = createDoubleSpin(-1000000.0, 1000000.0, 10.0);
     m_triggerIntervalSpin = createDoubleSpin(0.001, 1000000.0, 1.0);
-    m_triggerDirectionSpin = createIntSpin(-1, 1, 1);
-    m_triggerDirectionSpin->setSingleStep(2);
+    m_triggerDirectionSpin = createIntSpin(0, 1, 1);
     m_triggerPulseSpin = createIntSpin(1, 1000000, 500);
 
     QPushButton *setButton = new QPushButton(zh("\xe8\xae\xbe\xe7\xbd\xae\xe8\xa7\xa6\xe5\x8f\x91\xe5\x8f\x82\xe6\x95\xb0"), group);

@@ -7,7 +7,10 @@ using namespace Motion;
 
 namespace
 {
-const int kAxisReadyState = 3;
+bool isReadyState(int state)
+{
+    return state == 3;
+}
 }
 
 MotionController::MotionController(QObject *parent)
@@ -160,8 +163,8 @@ bool MotionController::moveSingleAxisIncremental(int axis, double distance)
 
 bool MotionController::moveSingleAxisContinuous(int axis, int direction)
 {
-    if (direction != 1 && direction != -1) {
-        emit errorMessage(tr("Continuous direction must be 1 or -1."));
+    if (direction != 0 && direction != 1) {
+        emit errorMessage(tr("Continuous direction must be 0 or 1."));
         return false;
     }
     if (!ensureAxisReady(axis, "moveSingleAxisContinuous")) {
@@ -278,8 +281,8 @@ bool MotionController::setTriggerParam(const TriggerParam &param)
     if (!validatePositive("Trigger interval", param.interval)) {
         return false;
     }
-    if (param.direction != 1 && param.direction != -1) {
-        emit errorMessage(tr("Trigger direction must be 1 or -1."));
+    if (param.direction != 0 && param.direction != 1) {
+        emit errorMessage(tr("Trigger direction must be 0 or 1."));
         return false;
     }
     if (param.pulseWidth <= 0) {
@@ -317,7 +320,7 @@ AxisStateSnapshot MotionController::getAxesCurrentState() const
 
 bool MotionController::IsAxisBusying(int axis) const
 {
-    return !currentStateKnownForAxis(axis) || currentStateForAxis(axis) != kAxisReadyState;
+    return !currentStateKnownForAxis(axis) || !isReadyState(currentStateForAxis(axis));
 }
 
 bool MotionController::isConnected() const
@@ -402,10 +405,11 @@ bool MotionController::ensureAxisReady(int axis, const QString &actionName) cons
         emit const_cast<MotionController *>(this)->errorMessage(message);
         return false;
     }
-    if (currentStateForAxis(axis) != kAxisReadyState) {
-        const QString message = tr("%1 failed, axis %2 is not ready, state=%3.")
+    if (!isReadyState(currentStateForAxis(axis))) {
+        const QString message = tr("%1 failed, axis %2 is not ready, state=%3, error=%4.")
             .arg(actionName, axisName(axis))
-            .arg(currentStateForAxis(axis));
+            .arg(currentStateForAxis(axis))
+            .arg(currentErrorForAxis(axis));
         emit const_cast<MotionController *>(this)->stateNotReady(message);
         emit const_cast<MotionController *>(this)->errorMessage(message);
         return false;
@@ -514,9 +518,32 @@ bool MotionController::parseCommandReply(const QStringList &parts, const QString
         return false;
     }
 
+    const QString payloadText = parts.last().trimmed();
+    const QStringList rawItems = payloadText.split(',', Qt::KeepEmptyParts);
+    if (rawItems.isEmpty()) {
+        emit errorMessage(tr("Reply has empty payload: %1").arg(frame));
+        return false;
+    }
+
+    bool commandIdOk = false;
+    const int commandId = rawItems.first().trimmed().toInt(&commandIdOk);
+    if (!commandIdOk) {
+        emit errorMessage(tr("Invalid reply command id: %1").arg(frame));
+        return false;
+    }
+
+    if (rawItems.size() >= 2 && rawItems.last().trimmed() == ">") {
+        emit logMessage(tr("Reply accepted without local state update: %1").arg(frame));
+        return true;
+    }
+    if (rawItems.size() >= 2 && rawItems.last().trimmed() == "?") {
+        emit errorMessage(tr("Controller rejected command: %1").arg(frame));
+        return false;
+    }
+
     QList<double> values;
     QString error;
-    if (!parsePayload(parts.last(), &values, &error)) {
+    if (!parsePayload(payloadText, &values, &error)) {
         emit errorMessage(tr("Invalid reply payload: %1, frame=%2").arg(error, frame));
         return false;
     }
@@ -525,7 +552,6 @@ bool MotionController::parseCommandReply(const QStringList &parts, const QString
         return false;
     }
 
-    const int commandId = qRound(values.first());
     int lastInt = 0;
     switch (commandId) {
     case CmdReadCurrentPosX:
@@ -703,6 +729,20 @@ int MotionController::currentStateForAxis(int axis) const
     }
     if (axis == AxisZ) {
         return m_state.stateZ;
+    }
+    return -1;
+}
+
+int MotionController::currentErrorForAxis(int axis) const
+{
+    if (axis == AxisX) {
+        return m_state.errorX;
+    }
+    if (axis == AxisY) {
+        return m_state.errorY;
+    }
+    if (axis == AxisZ) {
+        return m_state.errorZ;
     }
     return -1;
 }

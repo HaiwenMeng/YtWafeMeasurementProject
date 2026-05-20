@@ -23,4 +23,3 @@ HEADERS += \
     src/ui/MainWindow.h
 
 DESTDIR = ../BIN
-

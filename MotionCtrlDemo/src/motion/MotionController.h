@@ -72,6 +72,7 @@ private:
     void updateError(int axis, int value);
     void updateHome(int axis, bool value);
     int currentStateForAxis(int axis) const;
+    int currentErrorForAxis(int axis) const;
     bool currentStateKnownForAxis(int axis) const;
     bool parseLastInt(const QList<double> &values, int *value) const;
 
