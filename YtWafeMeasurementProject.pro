@@ -3,4 +3,5 @@ TEMPLATE = subdirs
 SUBDIRS += \
     MotionCtrlDemo \
     colorFocusContrlDemo \
-    AlgoDemo
+    AlgoDemo \
+    CalibrationTestDemo

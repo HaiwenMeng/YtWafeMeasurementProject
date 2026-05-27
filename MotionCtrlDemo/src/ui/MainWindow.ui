@@ -1,0 +1,635 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1180</width>
+    <height>760</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>运动控制测试</string>
+  </property>
+  <widget class="QWidget" name="centralWidget">
+   <layout class="QVBoxLayout" name="rootLayout">
+    <item>
+     <layout class="QHBoxLayout" name="topLayout" stretch="1,2">
+      <item>
+       <layout class="QVBoxLayout" name="leftLayout">
+        <item>
+         <widget class="QGroupBox" name="connectionGroup">
+          <property name="title">
+           <string>连接区</string>
+          </property>
+          <layout class="QGridLayout" name="connectionLayout">
+           <item row="0" column="0">
+            <widget class="QLabel" name="ipLabel">
+             <property name="text">
+              <string>IP地址</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLineEdit" name="ipEdit">
+             <property name="text">
+              <string>90.0.0.1</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="portLabel">
+             <property name="text">
+              <string>端口</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QSpinBox" name="portSpin">
+             <property name="minimum">
+              <number>1</number>
+             </property>
+             <property name="maximum">
+              <number>65535</number>
+             </property>
+             <property name="value">
+              <number>5000</number>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QPushButton" name="connectButton">
+             <property name="text">
+              <string>连接</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QPushButton" name="disconnectButton">
+             <property name="text">
+              <string>断开</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="connectionStatusTextLabel">
+             <property name="text">
+              <string>状态</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QLabel" name="connectionStatusLabel">
+             <property name="text">
+              <string>已断开</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="axisGroup">
+          <property name="title">
+           <string>轴监控</string>
+          </property>
+          <layout class="QGridLayout" name="axisLayout">
+           <item row="0" column="0">
+            <widget class="QLabel" name="axisSelectLabel">
+             <property name="text">
+              <string>当前轴</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1" colspan="3">
+            <widget class="QComboBox" name="axisCombo"/>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="axisHeaderLabel">
+             <property name="text">
+              <string>轴</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QLabel" name="xHeaderLabel">
+             <property name="text">
+              <string>X</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="2">
+            <widget class="QLabel" name="yHeaderLabel">
+             <property name="text">
+              <string>Y</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="3">
+            <widget class="QLabel" name="zHeaderLabel">
+             <property name="text">
+              <string>Z</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="positionTextLabel">
+             <property name="text">
+              <string>位置</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QLabel" name="posXLabel">
+             <property name="text">
+              <string>0.000</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="2">
+            <widget class="QLabel" name="posYLabel">
+             <property name="text">
+              <string>0.000</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="3">
+            <widget class="QLabel" name="posZLabel">
+             <property name="text">
+              <string>0.000</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="axisStateTextLabel">
+             <property name="text">
+              <string>轴状态</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QLabel" name="stateXLabel">
+             <property name="text">
+              <string>未知</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="2">
+            <widget class="QLabel" name="stateYLabel">
+             <property name="text">
+              <string>未知</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="3">
+            <widget class="QLabel" name="stateZLabel">
+             <property name="text">
+              <string>未知</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="0">
+            <widget class="QLabel" name="errorTextLabel">
+             <property name="text">
+              <string>错误码</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="1">
+            <widget class="QLabel" name="errorXLabel">
+             <property name="text">
+              <string>未知</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="2">
+            <widget class="QLabel" name="errorYLabel">
+             <property name="text">
+              <string>未知</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="3">
+            <widget class="QLabel" name="errorZLabel">
+             <property name="text">
+              <string>未知</string>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="0" colspan="4">
+            <widget class="QLabel" name="homeLabel">
+             <property name="text">
+              <string>回零 X=?, Y=?, Z=?</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="refreshGroup">
+          <property name="title">
+           <string>实时刷新</string>
+          </property>
+          <layout class="QGridLayout" name="refreshLayout">
+           <item row="0" column="0">
+            <widget class="QCheckBox" name="autoReadCheck">
+             <property name="text">
+              <string>手动轮询</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLabel" name="autoReadIntervalLabel">
+             <property name="text">
+              <string>周期 ms</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <widget class="QSpinBox" name="autoReadIntervalSpin"/>
+           </item>
+           <item row="1" column="0">
+            <widget class="QCheckBox" name="ctrlAutoSndCheck">
+             <property name="text">
+              <string>控制器自动上报</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QLabel" name="ctrlAutoSndIntervalLabel">
+             <property name="text">
+              <string>周期 ms</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="2">
+            <widget class="QSpinBox" name="ctrlAutoSndIntervalSpin"/>
+           </item>
+           <item row="2" column="0" colspan="3">
+            <widget class="QPushButton" name="manualReadButton">
+             <property name="text">
+              <string>手动读取</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <spacer name="leftSpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="rightLayout">
+        <item>
+         <widget class="QGroupBox" name="singleAxisGroup">
+          <property name="title">
+           <string>单轴控制</string>
+          </property>
+          <layout class="QGridLayout" name="singleAxisLayout">
+           <item row="5" column="4">
+            <widget class="QLabel" name="decelerationLabel">
+             <property name="text">
+              <string>减速度</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="1">
+            <widget class="QPushButton" name="continuousNegativeButton">
+             <property name="text">
+              <string>反向连续</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="3" colspan="2">
+            <widget class="QPushButton" name="relMoveButton">
+             <property name="text">
+              <string>相对运动</string>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="3">
+            <widget class="QDoubleSpinBox" name="accelerationSpin"/>
+           </item>
+           <item row="0" column="0">
+            <widget class="QPushButton" name="enableButton">
+             <property name="text">
+              <string>使能</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1" colspan="2">
+            <widget class="QDoubleSpinBox" name="absPositionSpin"/>
+           </item>
+           <item row="1" column="3" colspan="2">
+            <widget class="QPushButton" name="absMoveButton">
+             <property name="text">
+              <string>绝对运动</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="relDistanceLabel">
+             <property name="text">
+              <string>相对距离</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="absPositionLabel">
+             <property name="text">
+              <string>绝对位置</string>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="0">
+            <widget class="QLabel" name="velocityLabel">
+             <property name="text">
+              <string>速度</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QPushButton" name="disableButton">
+             <property name="text">
+              <string>失能</string>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="0" colspan="6">
+            <widget class="QPushButton" name="setVelocityButton">
+             <property name="text">
+              <string>设置速度参数</string>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="5">
+            <widget class="QDoubleSpinBox" name="decelerationSpin"/>
+           </item>
+           <item row="5" column="1">
+            <widget class="QDoubleSpinBox" name="velocitySpin"/>
+           </item>
+           <item row="0" column="3">
+            <widget class="QPushButton" name="clearErrorButton">
+             <property name="text">
+              <string>清错</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1" colspan="2">
+            <widget class="QDoubleSpinBox" name="relDistanceSpin"/>
+           </item>
+           <item row="0" column="2">
+            <widget class="QPushButton" name="homeButton">
+             <property name="text">
+              <string>回零</string>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="2">
+            <widget class="QLabel" name="accelerationLabel">
+             <property name="text">
+              <string>加速度</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="0">
+            <widget class="QPushButton" name="continuousPositiveButton">
+             <property name="text">
+              <string>正向连续</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="3">
+            <widget class="QLabel" name="continuousStopHintLabel">
+             <property name="text">
+              <string>停止请使用停止当前轴按钮</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="2">
+            <widget class="QPushButton" name="stopAxisButton">
+             <property name="text">
+              <string>停止当前轴</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="lineGroup">
+          <property name="title">
+           <string>XY 插补</string>
+          </property>
+          <layout class="QGridLayout" name="lineLayout">
+           <item row="0" column="0">
+            <widget class="QLabel" name="lineXLabel">
+             <property name="text">
+              <string>X 目标</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QDoubleSpinBox" name="lineXSpin"/>
+           </item>
+           <item row="0" column="2">
+            <widget class="QLabel" name="lineYLabel">
+             <property name="text">
+              <string>Y 目标</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="3">
+            <widget class="QDoubleSpinBox" name="lineYSpin"/>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="lineVelocityLabel">
+             <property name="text">
+              <string>速度</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QDoubleSpinBox" name="lineVelocitySpin"/>
+           </item>
+           <item row="1" column="2">
+            <widget class="QLabel" name="lineAccelerationLabel">
+             <property name="text">
+              <string>加速度</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="3">
+            <widget class="QDoubleSpinBox" name="lineAccelerationSpin"/>
+           </item>
+           <item row="1" column="4">
+            <widget class="QLabel" name="lineDecelerationLabel">
+             <property name="text">
+              <string>减速度</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="5">
+            <widget class="QDoubleSpinBox" name="lineDecelerationSpin"/>
+           </item>
+           <item row="2" column="0" colspan="3">
+            <widget class="QPushButton" name="lineMoveButton">
+             <property name="text">
+              <string>执行 XY 插补</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="3" colspan="3">
+            <widget class="QPushButton" name="stopLineButton">
+             <property name="text">
+              <string>停止 XY 插补</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="triggerGroup">
+          <property name="title">
+           <string>触发测试</string>
+          </property>
+          <layout class="QGridLayout" name="triggerLayout">
+           <item row="0" column="0">
+            <widget class="QLabel" name="triggerAxisLabel">
+             <property name="text">
+              <string>触发轴</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QComboBox" name="triggerAxisCombo"/>
+           </item>
+           <item row="0" column="2">
+            <widget class="QLabel" name="triggerStartLabel">
+             <property name="text">
+              <string>起始位置</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="3">
+            <widget class="QDoubleSpinBox" name="triggerStartSpin"/>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="triggerEndLabel">
+             <property name="text">
+              <string>结束位置</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QDoubleSpinBox" name="triggerEndSpin"/>
+           </item>
+           <item row="1" column="2">
+            <widget class="QLabel" name="triggerIntervalLabel">
+             <property name="text">
+              <string>间距</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="3">
+            <widget class="QDoubleSpinBox" name="triggerIntervalSpin"/>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="triggerDirectionLabel">
+             <property name="text">
+              <string>方向</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QSpinBox" name="triggerDirectionSpin"/>
+           </item>
+           <item row="2" column="2">
+            <widget class="QLabel" name="triggerPulseLabel">
+             <property name="text">
+              <string>脉宽</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="3">
+            <widget class="QSpinBox" name="triggerPulseSpin"/>
+           </item>
+           <item row="3" column="0" colspan="2">
+            <widget class="QPushButton" name="setTriggerButton">
+             <property name="text">
+              <string>设置触发参数</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="2">
+            <widget class="QPushButton" name="triggerOnButton">
+             <property name="text">
+              <string>开启触发</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="3">
+            <widget class="QPushButton" name="triggerOffButton">
+             <property name="text">
+              <string>关闭触发</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <spacer name="rightSpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <widget class="QGroupBox" name="logGroup">
+      <property name="title">
+       <string>日志</string>
+      </property>
+      <layout class="QVBoxLayout" name="logLayout">
+       <item>
+        <widget class="QPlainTextEdit" name="logEdit">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

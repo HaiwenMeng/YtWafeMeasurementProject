@@ -22,4 +22,7 @@ HEADERS += \
     src/motion/MotionTypes.h \
     src/ui/MainWindow.h
 
+FORMS += \
+    src/ui/MainWindow.ui
+
 DESTDIR = ../BIN

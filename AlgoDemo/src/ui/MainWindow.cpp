@@ -4,6 +4,7 @@
 #include <QDateTime>
 #include <QFile>
 #include <QFileDialog>
+#include <QHeaderView>
 #include <QMessageBox>
 #include <QTextStream>
 
@@ -13,22 +14,9 @@ MainWindow::MainWindow(QWidget* parent)
 {
     ui->setupUi(this);
 
-    ui->resultTable->setColumnCount(12);
-    ui->resultTable->setHorizontalHeaderLabels(QStringList()
-        << QStringLiteral("Average THK") << QStringLiteral("Center THK")
-        << QStringLiteral("TTV") << QStringLiteral("Bow")
-        << QStringLiteral("Bow(X)") << QStringLiteral("Bow(Y)")
-        << QStringLiteral("Warp") << QStringLiteral("Warp(X)")
-        << QStringLiteral("Warp(Y)") << QStringLiteral("SORI")
-        << QStringLiteral("success") << QStringLiteral("errorMessage"));
+    ui->resultTable->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     ui->resultTable->horizontalHeader()->setStretchLastSection(true);
-
-    ui->detailTable->setColumnCount(8);
-    ui->detailTable->setHorizontalHeaderLabels(QStringList()
-        << QStringLiteral("lineIndex") << QStringLiteral("pointCount")
-        << QStringLiteral("Bow") << QStringLiteral("Warp")
-        << QStringLiteral("direction") << QStringLiteral("minThickness")
-        << QStringLiteral("maxThickness") << QStringLiteral("averageThickness"));
+    ui->detailTable->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     ui->detailTable->horizontalHeader()->setStretchLastSection(true);
 
     connect(ui->btnSelectFile, &QPushButton::clicked, this, &MainWindow::selectCsvFile);

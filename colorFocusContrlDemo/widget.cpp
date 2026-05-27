@@ -73,7 +73,7 @@ Widget::Widget(QWidget *parent)
     m_controlThread->start();
     SetUiConnected(false);
     SetUiAcquiring(false);
-    AppendLog("Demo initialized");
+    AppendLog(QString::fromUtf8("\x44\x65\x6D\x6F\xE5\x88\x9D\xE5\xA7\x8B\xE5\x8C\x96\xE5\xAE\x8C\xE6\x88\x90"));
 }
 
 Widget::~Widget()
@@ -88,46 +88,44 @@ Widget::~Widget()
 
 void Widget::BuildUi()
 {
-    setWindowTitle("Color Focus Control Demo");
-    resize(1100, 760);
+    m_ipEdit = ui->m_ipEdit;
+    m_sensorIdSpin = ui->m_sensorIdSpin;
+    m_connectButton = ui->m_connectButton;
+    m_startButton = ui->m_startButton;
+    m_applyButton = ui->m_applyButton;
+    m_darkButton = ui->m_darkButton;
+    m_clearStackButton = ui->m_clearStackButton;
+    m_recenterButton = ui->m_recenterButton;
+    m_connectionLabel = ui->m_connectionLabel;
+    m_acquisitionLabel = ui->m_acquisitionLabel;
+    m_distanceLabel = ui->m_distanceLabel;
+    m_intensityLabel = ui->m_intensityLabel;
+    m_encoderLabel = ui->m_encoderLabel;
+    m_measureModeCombo = ui->m_measureModeCombo;
+    m_scanRateCombo = ui->m_scanRateCombo;
+    m_triggerModeCombo = ui->m_triggerModeCombo;
+    m_triggerEdgeCombo = ui->m_triggerEdgeCombo;
+    m_burstNumSpin = ui->m_burstNumSpin;
+    m_sensitivitySpin = ui->m_sensitivitySpin;
+    m_autoSensitivityCheck = ui->m_autoSensitivityCheck;
+    m_smoothingSpin = ui->m_smoothingSpin;
+    m_encoderHeadSpin = ui->m_encoderHeadSpin;
+    m_encoderTailSpin = ui->m_encoderTailSpin;
+    m_encoderIntervalSpin = ui->m_encoderIntervalSpin;
+    m_encoderSelectCombo = ui->m_encoderSelectCombo;
+    m_encoderDirectionCombo = ui->m_encoderDirectionCombo;
+    m_logEdit = ui->m_logEdit;
 
-    m_ipEdit = new QLineEdit("192.168.10.11", this);
-    m_sensorIdSpin = new QSpinBox(this);
     m_sensorIdSpin->setRange(0, 15);
     m_sensorIdSpin->setValue(0);
+    m_ipEdit->setText("192.168.10.11");
 
-    m_connectButton = new QPushButton("Connect", this);
-    m_startButton = new QPushButton("Start", this);
-    m_applyButton = new QPushButton("Apply Parameters", this);
-    m_darkButton = new QPushButton("Dark", this);
-    m_clearStackButton = new QPushButton("Clear Stack", this);
-    m_recenterButton = new QPushButton("Recenter Encoders", this);
+    m_measureModeCombo->clear();
+    m_measureModeCombo->addItem(QString::fromUtf8("\xE4\xBD\x8D\xE7\xA7\xBB"), CCS_DISTANCE_MODE);
+    m_measureModeCombo->addItem(QString::fromUtf8("\xE5\x8E\x9A\xE5\xBA\xA6"), CCS_THICKNESS_MODE);
+    m_measureModeCombo->addItem(QString::fromUtf8("\xE5\xA4\x9A\xE5\xB1\x82"), CCS_MULTI_LAYER_MODE);
 
-    m_connectionLabel = new QLabel("Disconnected", this);
-    m_acquisitionLabel = new QLabel("Stopped", this);
-    m_distanceLabel = new QLabel("--", this);
-    m_intensityLabel = new QLabel("--", this);
-    m_encoderLabel = new QLabel("--", this);
-
-    QGroupBox *connectionGroup = new QGroupBox("Connection", this);
-    QGridLayout *connectionLayout = new QGridLayout(connectionGroup);
-    connectionLayout->addWidget(new QLabel("IP", this), 0, 0);
-    connectionLayout->addWidget(m_ipEdit, 0, 1);
-    connectionLayout->addWidget(new QLabel("Sensor ID", this), 0, 2);
-    connectionLayout->addWidget(m_sensorIdSpin, 0, 3);
-    connectionLayout->addWidget(m_connectButton, 0, 4);
-    connectionLayout->addWidget(m_startButton, 0, 5);
-    connectionLayout->addWidget(new QLabel("Connection", this), 1, 0);
-    connectionLayout->addWidget(m_connectionLabel, 1, 1);
-    connectionLayout->addWidget(new QLabel("Acquisition", this), 1, 2);
-    connectionLayout->addWidget(m_acquisitionLabel, 1, 3);
-
-    m_measureModeCombo = new QComboBox(this);
-    m_measureModeCombo->addItem("Distance", CCS_DISTANCE_MODE);
-    m_measureModeCombo->addItem("Thickness", CCS_THICKNESS_MODE);
-    m_measureModeCombo->addItem("Multi layer", CCS_MULTI_LAYER_MODE);
-
-    m_scanRateCombo = new QComboBox(this);
+    m_scanRateCombo->clear();
     const QStringList rates = QStringList()
             << "200 Hz" << "500 Hz" << "1000 Hz" << "2000 Hz" << "3000 Hz"
             << "4000 Hz" << "4500 Hz" << "5000 Hz" << "6000 Hz" << "7000 Hz"
@@ -137,125 +135,66 @@ void Widget::BuildUi()
     }
     m_scanRateCombo->setCurrentIndex(2);
 
-    m_triggerModeCombo = new QComboBox(this);
-    m_triggerModeCombo->addItem("Continue", TriggerContinue);
-    m_triggerModeCombo->addItem("Start by edge", TriggerStartByEdge);
-    m_triggerModeCombo->addItem("Start stop by state", TriggerStartStopByState);
-    m_triggerModeCombo->addItem("Start stop by edge", TriggerStartStopByEdge);
-    m_triggerModeCombo->addItem("Burst", TriggerBurst);
-    m_triggerModeCombo->addItem("Encoder", TriggerEncoder);
+    m_triggerModeCombo->clear();
+    m_triggerModeCombo->addItem(QString::fromUtf8("\xE8\xBF\x9E\xE7\xBB\xAD\xE6\xA8\xA1\xE5\xBC\x8F"), TriggerContinue);
+    m_triggerModeCombo->addItem(QString::fromUtf8("\xE8\xBE\xB9\xE6\xB2\xBF\xE5\x90\xAF\xE5\x8A\xA8"), TriggerStartByEdge);
+    m_triggerModeCombo->addItem(QString::fromUtf8("\xE7\x94\xB5\xE5\xB9\xB3\xE5\x90\xAF\xE5\x81\x9C"), TriggerStartStopByState);
+    m_triggerModeCombo->addItem(QString::fromUtf8("\xE8\xBE\xB9\xE6\xB2\xBF\xE5\x90\xAF\xE5\x81\x9C"), TriggerStartStopByEdge);
+    m_triggerModeCombo->addItem(QString::fromUtf8("\x42\x75\x72\x73\x74\xE6\xA8\xA1\xE5\xBC\x8F"), TriggerBurst);
+    m_triggerModeCombo->addItem(QString::fromUtf8("\xE7\xBC\x96\xE7\xA0\x81\xE5\x99\xA8\xE8\xA7\xA6\xE5\x8F\x91"), TriggerEncoder);
 
-    m_triggerEdgeCombo = new QComboBox(this);
-    m_triggerEdgeCombo->addItem("Falling or low", 0);
-    m_triggerEdgeCombo->addItem("Rising or high", 1);
+    m_triggerEdgeCombo->clear();
+    m_triggerEdgeCombo->addItem(QString::fromUtf8("\xE4\xB8\x8B\xE9\x99\x8D\xE6\xB2\xBF\xE6\x88\x96\xE4\xBD\x8E\xE7\x94\xB5\xE5\xB9\xB3"), 0);
+    m_triggerEdgeCombo->addItem(QString::fromUtf8("\xE4\xB8\x8A\xE5\x8D\x87\xE6\xB2\xBF\xE6\x88\x96\xE9\xAB\x98\xE7\x94\xB5\xE5\xB9\xB3"), 1);
 
-    m_burstNumSpin = new QSpinBox(this);
     m_burstNumSpin->setRange(1, 1000000);
     m_burstNumSpin->setValue(3000);
-    m_sensitivitySpin = new QSpinBox(this);
     m_sensitivitySpin->setRange(1, 100);
     m_sensitivitySpin->setValue(50);
-    m_autoSensitivityCheck = new QCheckBox("Auto sensitivity", this);
-    m_smoothingSpin = new QSpinBox(this);
     m_smoothingSpin->setRange(0, 2048);
     m_smoothingSpin->setValue(0);
 
-    QGroupBox *parameterGroup = new QGroupBox("Parameters", this);
-    QGridLayout *parameterLayout = new QGridLayout(parameterGroup);
-    parameterLayout->addWidget(new QLabel("Measure mode", this), 0, 0);
-    parameterLayout->addWidget(m_measureModeCombo, 0, 1);
-    parameterLayout->addWidget(new QLabel("Scan rate", this), 0, 2);
-    parameterLayout->addWidget(m_scanRateCombo, 0, 3);
-    parameterLayout->addWidget(new QLabel("Trigger mode", this), 1, 0);
-    parameterLayout->addWidget(m_triggerModeCombo, 1, 1);
-    parameterLayout->addWidget(new QLabel("Trigger edge", this), 1, 2);
-    parameterLayout->addWidget(m_triggerEdgeCombo, 1, 3);
-    parameterLayout->addWidget(new QLabel("Burst num", this), 2, 0);
-    parameterLayout->addWidget(m_burstNumSpin, 2, 1);
-    parameterLayout->addWidget(new QLabel("Sensitivity", this), 2, 2);
-    parameterLayout->addWidget(m_sensitivitySpin, 2, 3);
-    parameterLayout->addWidget(m_autoSensitivityCheck, 3, 0, 1, 2);
-    parameterLayout->addWidget(new QLabel("Smoothing", this), 3, 2);
-    parameterLayout->addWidget(m_smoothingSpin, 3, 3);
-    parameterLayout->addWidget(m_applyButton, 4, 0, 1, 4);
-
-    m_encoderHeadSpin = new QSpinBox(this);
     m_encoderHeadSpin->setRange(INT_MIN + 1, INT_MAX);
     m_encoderHeadSpin->setValue(INT_MIN + 1);
-    m_encoderTailSpin = new QSpinBox(this);
     m_encoderTailSpin->setRange(INT_MIN + 1, INT_MAX);
     m_encoderTailSpin->setValue(INT_MAX);
-    m_encoderIntervalSpin = new QSpinBox(this);
     m_encoderIntervalSpin->setRange(1, 1000000);
     m_encoderIntervalSpin->setValue(20);
-    m_encoderSelectCombo = new QComboBox(this);
-    m_encoderSelectCombo->addItem("Encoder 1", 0);
-    m_encoderSelectCombo->addItem("Encoder 2", 1);
-    m_encoderSelectCombo->addItem("Encoder 3", 2);
-    m_encoderDirectionCombo = new QComboBox(this);
-    m_encoderDirectionCombo->addItem("Forward", 1);
-    m_encoderDirectionCombo->addItem("Backward", 0);
-
-    QGroupBox *encoderGroup = new QGroupBox("Encoder Trigger", this);
-    QGridLayout *encoderLayout = new QGridLayout(encoderGroup);
-    encoderLayout->addWidget(new QLabel("Head", this), 0, 0);
-    encoderLayout->addWidget(m_encoderHeadSpin, 0, 1);
-    encoderLayout->addWidget(new QLabel("Tail", this), 0, 2);
-    encoderLayout->addWidget(m_encoderTailSpin, 0, 3);
-    encoderLayout->addWidget(new QLabel("Interval", this), 1, 0);
-    encoderLayout->addWidget(m_encoderIntervalSpin, 1, 1);
-    encoderLayout->addWidget(new QLabel("Source", this), 1, 2);
-    encoderLayout->addWidget(m_encoderSelectCombo, 1, 3);
-    encoderLayout->addWidget(new QLabel("Direction", this), 2, 0);
-    encoderLayout->addWidget(m_encoderDirectionCombo, 2, 1);
-    encoderLayout->addWidget(m_recenterButton, 2, 2, 1, 2);
-
-    QGroupBox *sampleGroup = new QGroupBox("Realtime Values", this);
-    QFormLayout *sampleLayout = new QFormLayout(sampleGroup);
-    sampleLayout->addRow("Distance", m_distanceLabel);
-    sampleLayout->addRow("Intensity", m_intensityLabel);
-    sampleLayout->addRow("Encoders", m_encoderLabel);
-    sampleLayout->addRow(m_darkButton, m_clearStackButton);
+    m_encoderSelectCombo->clear();
+    m_encoderSelectCombo->addItem(QString::fromUtf8("\xE7\xBC\x96\xE7\xA0\x81\xE5\x99\xA8\x31"), 0);
+    m_encoderSelectCombo->addItem(QString::fromUtf8("\xE7\xBC\x96\xE7\xA0\x81\xE5\x99\xA8\x32"), 1);
+    m_encoderSelectCombo->addItem(QString::fromUtf8("\xE7\xBC\x96\xE7\xA0\x81\xE5\x99\xA8\x33"), 2);
+    m_encoderDirectionCombo->clear();
+    m_encoderDirectionCombo->addItem(QString::fromUtf8("\xE6\xAD\xA3\xE5\x90\x91"), 1);
+    m_encoderDirectionCombo->addItem(QString::fromUtf8("\xE5\x8F\x8D\xE5\x90\x91"), 0);
 
     m_distanceSeries = new QLineSeries(this);
-    m_distanceSeries->setName("Distance");
+    m_distanceSeries->setName(QString::fromUtf8("\xE8\xB7\x9D\xE7\xA6\xBB"));
     m_chart = new QChart();
     m_chart->addSeries(m_distanceSeries);
     m_chart->legend()->hide();
-    m_chart->setTitle("Distance Realtime Chart");
+    m_chart->setTitle(QString::fromUtf8("\xE8\xB7\x9D\xE7\xA6\xBB\xE5\xAE\x9E\xE6\x97\xB6\xE6\x9B\xB2\xE7\xBA\xBF"));
     m_axisX = new QValueAxis(this);
-    m_axisX->setTitleText("Sample");
+    m_axisX->setTitleText(QString::fromUtf8("\xE9\x87\x87\xE6\xA0\xB7\xE7\x82\xB9"));
     m_axisX->setRange(0, 120);
     m_axisY = new QValueAxis(this);
-    m_axisY->setTitleText("Distance");
+    m_axisY->setTitleText(QString::fromUtf8("\xE8\xB7\x9D\xE7\xA6\xBB"));
     m_axisY->setRange(-5, 5);
     m_chart->addAxis(m_axisX, Qt::AlignBottom);
     m_chart->addAxis(m_axisY, Qt::AlignLeft);
     m_distanceSeries->attachAxis(m_axisX);
     m_distanceSeries->attachAxis(m_axisY);
-    m_chartView = new QChartView(m_chart, this);
+    m_chartView = new QChartView(m_chart, ui->m_chartContainer);
     m_chartView->setRenderHint(QPainter::Antialiasing);
     m_chartView->setMinimumHeight(360);
 
-    m_logEdit = new QPlainTextEdit(this);
+    QVBoxLayout *chartLayout = new QVBoxLayout(ui->m_chartContainer);
+    chartLayout->setContentsMargins(0, 0, 0, 0);
+    chartLayout->addWidget(m_chartView);
+    ui->m_chartContainer->setLayout(chartLayout);
+
     m_logEdit->setReadOnly(true);
     m_logEdit->setMaximumBlockCount(500);
-
-    QVBoxLayout *leftLayout = new QVBoxLayout();
-    leftLayout->addWidget(connectionGroup);
-    leftLayout->addWidget(parameterGroup);
-    leftLayout->addWidget(encoderGroup);
-    leftLayout->addWidget(sampleGroup);
-    leftLayout->addStretch();
-
-    QVBoxLayout *rightLayout = new QVBoxLayout();
-    rightLayout->addWidget(m_chartView, 3);
-    rightLayout->addWidget(m_logEdit, 1);
-
-    QHBoxLayout *mainLayout = new QHBoxLayout(this);
-    mainLayout->addLayout(leftLayout, 1);
-    mainLayout->addLayout(rightLayout, 2);
-    setLayout(mainLayout);
 }
 
 void Widget::ConnectSignals()
@@ -271,19 +210,19 @@ void Widget::ConnectSignals()
     connect(m_control, &ColorFocusControl::acquisitionStateChanged, this, &Widget::OnAcquisitionStateChanged);
     connect(m_control, &ColorFocusControl::sampleUpdated, this, &Widget::OnSampleUpdated);
     connect(m_control, &ColorFocusControl::errorOccurred, this, [this](int, const QString &message) {
-        AppendLog(QString("ERROR: %1").arg(message));
+        AppendLog(QString::fromUtf8("\xE9\x94\x99\xE8\xAF\xAF\x3A\x20\x25\x31").arg(message));
     });
     connect(m_control, &ColorFocusControl::logMessage, this, &Widget::AppendLog);
     connect(m_control, &ColorFocusControl::bufferedDataUpdated, this, [this](int sensorId, int count) {
-        AppendLog(QString("Buffered data updated. sensor=%1 count=%2").arg(sensorId).arg(count));
+        AppendLog(QString::fromUtf8("\xE7\xBC\x93\xE5\xAD\x98\xE6\x95\xB0\xE6\x8D\xAE\xE5\xB7\xB2\xE6\x9B\xB4\xE6\x96\xB0\x2E\x20\xE4\xBC\xA0\xE6\x84\x9F\xE5\x99\xA8\x3D\x25\x31\x20\xE7\x82\xB9\xE6\x95\xB0\x3D\x25\x32").arg(sensorId).arg(count));
     });
 }
 
 void Widget::SetUiConnected(bool connected)
 {
     m_connected = connected;
-    m_connectionLabel->setText(connected ? "Connected" : "Disconnected");
-    m_connectButton->setText(connected ? "Disconnect" : "Connect");
+    m_connectionLabel->setText(connected ? QString::fromUtf8("\xE5\xB7\xB2\xE8\xBF\x9E\xE6\x8E\xA5") : QString::fromUtf8("\xE6\x9C\xAA\xE8\xBF\x9E\xE6\x8E\xA5"));
+    m_connectButton->setText(connected ? QString::fromUtf8("\xE6\x96\xAD\xE5\xBC\x80") : QString::fromUtf8("\xE8\xBF\x9E\xE6\x8E\xA5"));
     m_startButton->setEnabled(connected);
     m_applyButton->setEnabled(connected);
     m_darkButton->setEnabled(connected);
@@ -299,8 +238,8 @@ void Widget::SetUiConnected(bool connected)
 void Widget::SetUiAcquiring(bool acquiring)
 {
     m_acquiring = acquiring;
-    m_acquisitionLabel->setText(acquiring ? "Running" : "Stopped");
-    m_startButton->setText(acquiring ? "Stop" : "Start");
+    m_acquisitionLabel->setText(acquiring ? QString::fromUtf8("\xE9\x87\x87\xE9\x9B\x86\xE4\xB8\xAD") : QString::fromUtf8("\xE5\xB7\xB2\xE5\x81\x9C\xE6\xAD\xA2"));
+    m_startButton->setText(acquiring ? QString::fromUtf8("\xE5\x81\x9C\xE6\xAD\xA2\xE9\x87\x87\xE9\x9B\x86") : QString::fromUtf8("\xE5\xBC\x80\xE5\xA7\x8B\xE9\x87\x87\xE9\x9B\x86"));
 }
 
 void Widget::AppendLog(const QString &message)
@@ -314,7 +253,7 @@ void Widget::AppendSample(float distance, float intensity, int encoder1, int enc
     distance = distance >0 ? distance:0;
     m_distanceLabel->setText(QString::number(distance, 'f', 4));
     m_intensityLabel->setText(QString::number(intensity, 'f', 4));
-    m_encoderLabel->setText(QString("E1=%1 E2=%2 E3=%3").arg(encoder1).arg(encoder2).arg(encoder3));
+    m_encoderLabel->setText(QString::fromUtf8("\xE7\xBC\x96\xE7\xA0\x81\xE5\x99\xA8\x31\x3D\x25\x31\x20\xE7\xBC\x96\xE7\xA0\x81\xE5\x99\xA8\x32\x3D\x25\x32\x20\xE7\xBC\x96\xE7\xA0\x81\xE5\x99\xA8\x33\x3D\x25\x33").arg(encoder1).arg(encoder2).arg(encoder3));
 
     m_chartPoints.append(QPointF(m_sampleIndex, distance));
     m_sampleIndex += 1.0;
@@ -352,7 +291,7 @@ void Widget::OnConnectClicked()
             m_control->SetSensorId(sensorId);
             m_control->ConnectDevice(ip);
         }, Qt::QueuedConnection);
-        AppendLog(QString("Connecting sensor=%1 ip=%2").arg(sensorId).arg(ip));
+        AppendLog(QString::fromUtf8("\xE6\xAD\xA3\xE5\x9C\xA8\xE8\xBF\x9E\xE6\x8E\xA5\xE4\xBC\xA0\xE6\x84\x9F\xE5\x99\xA8\x3D\x25\x31\x20\x49\x50\x3D\x25\x32").arg(sensorId).arg(ip));
     } else {
         QMetaObject::invokeMethod(m_control, &ColorFocusControl::DisconnectDevice, Qt::QueuedConnection);
     }

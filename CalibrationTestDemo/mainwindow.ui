@@ -1,0 +1,569 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1180</width>
+    <height>820</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>&#20849;&#32858;&#28966;&#26657;&#20934;&#27979;&#35797;</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout_main">
+    <item>
+     <widget class="QTabWidget" name="tabWidget">
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="tab_calibration">
+       <attribute name="title">
+        <string>&#26657;&#20934;</string>
+       </attribute>
+       <layout class="QHBoxLayout" name="horizontalLayout_calibration">
+        <item>
+         <layout class="QVBoxLayout" name="verticalLayout_left">
+          <item>
+           <widget class="QGroupBox" name="groupBox_config">
+            <property name="title">
+             <string>&#37197;&#32622;&#21442;&#25968;</string>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_config">
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_axis_ip">
+               <property name="text">
+                <string>&#36816;&#21160;IP</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QLineEdit" name="lineEdit_axis_ip"/>
+             </item>
+             <item row="0" column="2">
+              <widget class="QLabel" name="label_axis_port">
+               <property name="text">
+                <string>&#31471;&#21475;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="3">
+              <widget class="QLineEdit" name="lineEdit_axis_port"/>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="label_cf_top">
+               <property name="text">
+                <string>&#19978;&#20849;&#32858;&#28966;IP</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QLineEdit" name="lineEdit_cf_top"/>
+             </item>
+             <item row="1" column="2">
+              <widget class="QLabel" name="label_cf_bottom">
+               <property name="text">
+                <string>&#19979;&#20849;&#32858;&#28966;IP</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="3">
+              <widget class="QLineEdit" name="lineEdit_cf_bottom"/>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="label_z_123">
+               <property name="text">
+                <string>ZDefault123</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QLineEdit" name="lineEdit_z_123"/>
+             </item>
+             <item row="2" column="2">
+              <widget class="QLabel" name="label_z_4">
+               <property name="text">
+                <string>ZDefault4</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="3">
+              <widget class="QLineEdit" name="lineEdit_z_4"/>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_velocity_normal">
+               <property name="text">
+                <string>&#24120;&#36895;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="1">
+              <widget class="QLineEdit" name="lineEdit_velocity_normal"/>
+             </item>
+             <item row="3" column="2">
+              <widget class="QLabel" name="label_direction">
+               <property name="text">
+                <string>&#25195;&#25551;&#26041;&#21521;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="3">
+              <widget class="QComboBox" name="combo_scan_direction">
+               <item>
+                <property name="text">
+                 <string>X</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Y</string>
+                </property>
+               </item>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="groupBox_standards">
+            <property name="title">
+             <string>&#26631;&#20934;&#29255;&#20301;&#32622;&#21644;&#21402;&#24230;</string>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_standards">
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_std_header">
+               <property name="text">
+                <string>&#26631;&#20934;&#29255;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QLabel" name="label_x_header">
+               <property name="text">
+                <string>X</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="2">
+              <widget class="QLabel" name="label_y_header">
+               <property name="text">
+                <string>Y</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="3">
+              <widget class="QLabel" name="label_t_header">
+               <property name="text">
+                <string>&#21402;&#24230;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="4">
+              <widget class="QLabel" name="label_move_header">
+               <property name="text">
+                <string>&#25805;&#20316;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="label_s1">
+               <property name="text">
+                <string>500</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QLineEdit" name="lineEdit_s1x"/>
+             </item>
+             <item row="1" column="2">
+              <widget class="QLineEdit" name="lineEdit_s1y"/>
+             </item>
+             <item row="1" column="3">
+              <widget class="QLineEdit" name="lineEdit_s1t"/>
+             </item>
+             <item row="1" column="4">
+              <widget class="QPushButton" name="pushButton_move_s1">
+               <property name="text">
+                <string>&#31227;&#21160;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="label_s2">
+               <property name="text">
+                <string>725</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QLineEdit" name="lineEdit_s2x"/>
+             </item>
+             <item row="2" column="2">
+              <widget class="QLineEdit" name="lineEdit_s2y"/>
+             </item>
+             <item row="2" column="3">
+              <widget class="QLineEdit" name="lineEdit_s2t"/>
+             </item>
+             <item row="2" column="4">
+              <widget class="QPushButton" name="pushButton_move_s2">
+               <property name="text">
+                <string>&#31227;&#21160;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_s3">
+               <property name="text">
+                <string>800</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="1">
+              <widget class="QLineEdit" name="lineEdit_s3x"/>
+             </item>
+             <item row="3" column="2">
+              <widget class="QLineEdit" name="lineEdit_s3y"/>
+             </item>
+             <item row="3" column="3">
+              <widget class="QLineEdit" name="lineEdit_s3t"/>
+             </item>
+             <item row="3" column="4">
+              <widget class="QPushButton" name="pushButton_move_s3">
+               <property name="text">
+                <string>&#31227;&#21160;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0">
+              <widget class="QLabel" name="label_s4">
+               <property name="text">
+                <string>1550</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="1">
+              <widget class="QLineEdit" name="lineEdit_s4x"/>
+             </item>
+             <item row="4" column="2">
+              <widget class="QLineEdit" name="lineEdit_s4y"/>
+             </item>
+             <item row="4" column="3">
+              <widget class="QLineEdit" name="lineEdit_s4t"/>
+             </item>
+             <item row="4" column="4">
+              <widget class="QPushButton" name="pushButton_move_s4">
+               <property name="text">
+                <string>&#31227;&#21160;</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="groupBox_device">
+            <property name="title">
+             <string>&#35774;&#22791;&#25511;&#21046;</string>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_device">
+             <item row="0" column="0">
+              <widget class="QPushButton" name="pushButton_load_config">
+               <property name="text">
+                <string>&#21152;&#36733;&#37197;&#32622;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QPushButton" name="pushButton_save_config">
+               <property name="text">
+                <string>&#20445;&#23384;&#37197;&#32622;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="2">
+              <widget class="QPushButton" name="pushButton_connect_motion">
+               <property name="text">
+                <string>&#36830;&#25509;&#36816;&#21160;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="3">
+              <widget class="QPushButton" name="pushButton_disconnect_motion">
+               <property name="text">
+                <string>&#26029;&#24320;&#36816;&#21160;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QPushButton" name="pushButton_connect_focus">
+               <property name="text">
+                <string>&#36830;&#25509;&#20849;&#32858;&#28966;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QPushButton" name="pushButton_start_acq">
+               <property name="text">
+                <string>&#24320;&#22987;&#37319;&#38598;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="2">
+              <widget class="QPushButton" name="pushButton_stop_acq">
+               <property name="text">
+                <string>&#20572;&#27490;&#37319;&#38598;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="3">
+              <widget class="QPushButton" name="pushButton_stop_motion">
+               <property name="text">
+                <string>&#20572;&#27490;&#36816;&#21160;</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="groupBox_run">
+            <property name="title">
+             <string>&#26657;&#20934;&#25805;&#20316;</string>
+            </property>
+            <layout class="QHBoxLayout" name="horizontalLayout_run">
+             <item>
+              <widget class="QPushButton" name="pushButton_four_calibration">
+               <property name="minimumSize">
+                <size>
+                 <width>160</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>&#22235;&#26631;&#20934;&#29255;&#26657;&#20934;</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="pushButton_1550_calibration">
+               <property name="minimumSize">
+                <size>
+                 <width>160</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>1550&#21333;&#29255;&#26657;&#20934;</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QVBoxLayout" name="verticalLayout_right">
+          <item>
+           <widget class="QGroupBox" name="groupBox_status">
+            <property name="title">
+             <string>&#23454;&#26102;&#29366;&#24577;</string>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_status">
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_motion_title">
+               <property name="text">
+                <string>&#36816;&#21160;&#29366;&#24577;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QLabel" name="label_motion_status">
+               <property name="text">
+                <string>--</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="label_focus_title">
+               <property name="text">
+                <string>&#20849;&#32858;&#28966;&#29366;&#24577;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QLabel" name="label_focus_status">
+               <property name="text">
+                <string>--</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="label_top_title">
+               <property name="text">
+                <string>&#19978;&#36317;&#31163;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QLabel" name="label_top_distance">
+               <property name="text">
+                <string>--</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_bottom_title">
+               <property name="text">
+                <string>&#19979;&#36317;&#31163;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="1">
+              <widget class="QLabel" name="label_bottom_distance">
+               <property name="text">
+                <string>--</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0">
+              <widget class="QLabel" name="label_axis_pos_title">
+               <property name="text">
+                <string>&#36724;&#20301;&#32622;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="1">
+              <widget class="QLabel" name="label_axis_pos">
+               <property name="text">
+                <string>--</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="0">
+              <widget class="QLabel" name="label_axis_state_title">
+               <property name="text">
+                <string>&#36724;&#29366;&#24577;</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="1">
+              <widget class="QLabel" name="label_axis_state">
+               <property name="text">
+                <string>--</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QTableWidget" name="table_result">
+            <column>
+             <property name="text">
+              <string>ID</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>&#26631;&#20934;&#21402;&#24230;</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>&#19978;&#36317;&#31163;</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>&#19979;&#36317;&#31163;</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>&#26412;&#27425;Total</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>&#21382;&#21490;Total</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>&#20559;&#24046;</string>
+             </property>
+            </column>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPlainTextEdit" name="plainTextEdit_log">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>220</height>
+             </size>
+            </property>
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tab_algorithm">
+       <attribute name="title">
+        <string>&#31639;&#27861;&#39564;&#35777;</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_algorithm">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_csv">
+          <item>
+           <widget class="QLabel" name="label_csv_path">
+            <property name="text">
+             <string>CSV</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="lineEdit_csv_path"/>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_browse_csv">
+            <property name="text">
+             <string>&#36873;&#25321;</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_run_algorithm">
+            <property name="text">
+             <string>&#36816;&#34892;&#31639;&#27861;</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QPlainTextEdit" name="plainTextEdit_algo_result">
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

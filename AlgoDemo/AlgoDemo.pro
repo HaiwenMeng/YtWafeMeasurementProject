@@ -31,9 +31,9 @@ FORMS += \
 
 DESTDIR = ../BIN
 
-win32:CONFIG(release, debug|release): OBJECTS_DIR = build/release/obj
-win32:CONFIG(release, debug|release): MOC_DIR = build/release/moc
-win32:CONFIG(release, debug|release): UI_DIR = build/release/ui
-win32:CONFIG(debug, debug|release): OBJECTS_DIR = build/debug/obj
-win32:CONFIG(debug, debug|release): MOC_DIR = build/debug/moc
-win32:CONFIG(debug, debug|release): UI_DIR = build/debug/ui
+#win32:CONFIG(release, debug|release): OBJECTS_DIR = build/release/obj
+#win32:CONFIG(release, debug|release): MOC_DIR = build/release/moc
+#win32:CONFIG(release, debug|release): UI_DIR = build/release/ui
+#win32:CONFIG(debug, debug|release): OBJECTS_DIR = build/debug/obj
+#win32:CONFIG(debug, debug|release): MOC_DIR = build/debug/moc
+#win32:CONFIG(debug, debug|release): UI_DIR = build/debug/ui

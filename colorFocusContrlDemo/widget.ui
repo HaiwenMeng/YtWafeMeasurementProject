@@ -6,13 +6,356 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
-    <height>600</height>
+    <width>1100</width>
+    <height>760</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Widget</string>
+   <string>共焦高度测量测试工具</string>
   </property>
+  <layout class="QHBoxLayout" name="mainLayout" stretch="1,2">
+   <item>
+    <layout class="QVBoxLayout" name="leftLayout">
+     <item>
+      <widget class="QGroupBox" name="connectionGroup">
+       <property name="title">
+        <string>连接控制</string>
+       </property>
+       <layout class="QGridLayout" name="connectionLayout">
+        <item row="0" column="0">
+         <widget class="QLabel" name="ipLabel">
+          <property name="text">
+           <string>IP地址</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QLineEdit" name="m_ipEdit">
+          <property name="text">
+           <string>192.168.10.11</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="2">
+         <widget class="QLabel" name="sensorIdLabel">
+          <property name="text">
+           <string>传感器ID</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="3">
+         <widget class="QSpinBox" name="m_sensorIdSpin"/>
+        </item>
+        <item row="0" column="4">
+         <widget class="QPushButton" name="m_connectButton">
+          <property name="text">
+           <string>连接</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="5">
+         <widget class="QPushButton" name="m_startButton">
+          <property name="text">
+           <string>开始采集</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="connectionStateLabel">
+          <property name="text">
+           <string>连接状态</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLabel" name="m_connectionLabel">
+          <property name="text">
+           <string>未连接</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="2">
+         <widget class="QLabel" name="acquisitionStateLabel">
+          <property name="text">
+           <string>采集状态</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="3">
+         <widget class="QLabel" name="m_acquisitionLabel">
+          <property name="text">
+           <string>已停止</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QGroupBox" name="parameterGroup">
+       <property name="title">
+        <string>参数设置</string>
+       </property>
+       <layout class="QGridLayout" name="parameterLayout">
+        <item row="0" column="0">
+         <widget class="QLabel" name="measureModeLabel">
+          <property name="text">
+           <string>测量模式</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QComboBox" name="m_measureModeCombo"/>
+        </item>
+        <item row="0" column="2">
+         <widget class="QLabel" name="scanRateLabel">
+          <property name="text">
+           <string>采样率</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="3">
+         <widget class="QComboBox" name="m_scanRateCombo"/>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="triggerModeLabel">
+          <property name="text">
+           <string>触发模式</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QComboBox" name="m_triggerModeCombo"/>
+        </item>
+        <item row="1" column="2">
+         <widget class="QLabel" name="triggerEdgeLabel">
+          <property name="text">
+           <string>触发边沿</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="3">
+         <widget class="QComboBox" name="m_triggerEdgeCombo"/>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="burstNumLabel">
+          <property name="text">
+           <string>Burst点数</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QSpinBox" name="m_burstNumSpin"/>
+        </item>
+        <item row="2" column="2">
+         <widget class="QLabel" name="sensitivityLabel">
+          <property name="text">
+           <string>灵敏度</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="3">
+         <widget class="QSpinBox" name="m_sensitivitySpin"/>
+        </item>
+        <item row="3" column="0" colspan="2">
+         <widget class="QCheckBox" name="m_autoSensitivityCheck">
+          <property name="text">
+           <string>自动灵敏度</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="2">
+         <widget class="QLabel" name="smoothingLabel">
+          <property name="text">
+           <string>平滑系数</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="3">
+         <widget class="QSpinBox" name="m_smoothingSpin"/>
+        </item>
+        <item row="4" column="0" colspan="4">
+         <widget class="QPushButton" name="m_applyButton">
+          <property name="text">
+           <string>应用参数</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QGroupBox" name="encoderGroup">
+       <property name="title">
+        <string>编码器触发</string>
+       </property>
+       <layout class="QGridLayout" name="encoderLayout">
+        <item row="0" column="0">
+         <widget class="QLabel" name="encoderHeadLabel">
+          <property name="text">
+           <string>起点</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QSpinBox" name="m_encoderHeadSpin"/>
+        </item>
+        <item row="0" column="2">
+         <widget class="QLabel" name="encoderTailLabel">
+          <property name="text">
+           <string>终点</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="3">
+         <widget class="QSpinBox" name="m_encoderTailSpin"/>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="encoderIntervalLabel">
+          <property name="text">
+           <string>间隔</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QSpinBox" name="m_encoderIntervalSpin"/>
+        </item>
+        <item row="1" column="2">
+         <widget class="QLabel" name="encoderSourceLabel">
+          <property name="text">
+           <string>编码器</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="3">
+         <widget class="QComboBox" name="m_encoderSelectCombo"/>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="encoderDirectionLabel">
+          <property name="text">
+           <string>方向</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QComboBox" name="m_encoderDirectionCombo"/>
+        </item>
+        <item row="2" column="2" colspan="2">
+         <widget class="QPushButton" name="m_recenterButton">
+          <property name="text">
+           <string>编码器清零</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QGroupBox" name="sampleGroup">
+       <property name="title">
+        <string>实时数据</string>
+       </property>
+       <layout class="QFormLayout" name="sampleLayout">
+        <item row="0" column="0">
+         <widget class="QLabel" name="distanceTitleLabel">
+          <property name="text">
+           <string>距离</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QLabel" name="m_distanceLabel">
+          <property name="text">
+           <string>--</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="intensityTitleLabel">
+          <property name="text">
+           <string>强度</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLabel" name="m_intensityLabel">
+          <property name="text">
+           <string>--</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="encoderTitleLabel">
+          <property name="text">
+           <string>编码器值</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QLabel" name="m_encoderLabel">
+          <property name="text">
+           <string>--</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0" colspan="2">
+         <layout class="QHBoxLayout" name="sampleButtonLayout">
+          <item>
+           <widget class="QPushButton" name="m_darkButton">
+            <property name="text">
+             <string>暗场校准</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="m_clearStackButton">
+            <property name="text">
+             <string>清空缓存</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <spacer name="leftSpacer">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>40</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QVBoxLayout" name="rightLayout" stretch="3,1">
+     <item>
+      <widget class="QWidget" name="m_chartContainer" native="true">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>360</height>
+        </size>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPlainTextEdit" name="m_logEdit">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
  </widget>
  <resources/>
  <connections/>

@@ -31,7 +31,4 @@ win32 {
     OUT_DLL = $$shell_path($$DESTDIR/DLL_CCS.dll)
     QMAKE_POST_LINK += $$quote(cmd /c copy /Y "$$SDK_DLL" "$$OUT_DLL")
 }
-# Default rules for deployment.
-qnx: target.path = /tmp/$${TARGET}/bin
-else: unix:!android: target.path = /opt/$${TARGET}/bin
-!isEmpty(target.path): INSTALLS += target
+
