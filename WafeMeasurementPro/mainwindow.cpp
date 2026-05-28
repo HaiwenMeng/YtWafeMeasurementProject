@@ -125,6 +125,20 @@ double pathStepDeg(int measurePath)
         return 0.0;
     }
 }
+
+QString motionSnapshotText(const Motion::AxisPosition &position, const Motion::AxisStateSnapshot &state)
+{
+    return QStringLiteral("current=(%1,%2,%3), state=(X:%4,Y:%5,Z:%6), error=(X:%7,Y:%8,Z:%9)")
+        .arg(position.valid ? QString::number(position.x, 'f', 3) : QStringLiteral("--"))
+        .arg(position.valid ? QString::number(position.y, 'f', 3) : QStringLiteral("--"))
+        .arg(position.valid ? QString::number(position.z, 'f', 3) : QStringLiteral("--"))
+        .arg(state.valid ? QString::number(state.stateX) : QStringLiteral("--"))
+        .arg(state.valid ? QString::number(state.stateY) : QStringLiteral("--"))
+        .arg(state.valid ? QString::number(state.stateZ) : QStringLiteral("--"))
+        .arg(state.valid ? QString::number(state.errorX) : QStringLiteral("--"))
+        .arg(state.valid ? QString::number(state.errorY) : QStringLiteral("--"))
+        .arg(state.valid ? QString::number(state.errorZ) : QStringLiteral("--"));
+}
 }
 
 MainWindow::MainWindow(QWidget *parent)
@@ -409,6 +423,9 @@ void MainWindow::setBusy(bool busy, const QString &message)
 
 void MainWindow::appendLog(const QString &message)
 {
+    if (message.startsWith(QStringLiteral("RX: #autoSnd"))) {
+        return;
+    }
     if (QThread::currentThread() != thread()) {
         QMetaObject::invokeMethod(this, [this, message]() { appendLog(message); }, Qt::QueuedConnection);
         return;
@@ -599,8 +616,11 @@ void MainWindow::onScanGravityClicked()
         const bool canceled = m_stopRequested;
         QString loadError;
         if (!canceled && !moveLoadPosition(&loadError)) {
-            error = error.isEmpty() ? loadError : QStringLiteral("%1; %2").arg(error, loadError);
-            ok = false;
+            appendLog(QStringLiteral("Move to load position failed after gravity scan: %1").arg(loadError));
+            if (ok) {
+                error = loadError;
+                ok = false;
+            }
         }
         QMetaObject::invokeMethod(this, [this, ok, result, error, canceled]() {
             if (canceled) {
@@ -679,8 +699,11 @@ void MainWindow::onMeasureClicked()
         const bool canceled = m_stopRequested;
         QString loadError;
         if (!canceled && !moveLoadPosition(&loadError)) {
-            error = error.isEmpty() ? loadError : QStringLiteral("%1; %2").arg(error, loadError);
-            ok = false;
+            appendLog(QStringLiteral("Move to load position failed after measure: %1").arg(loadError));
+            if (ok) {
+                error = loadError;
+                ok = false;
+            }
         }
         result.success = ok;
         result.errorMessage = error;
@@ -905,12 +928,33 @@ bool MainWindow::moveXy(double x, double y, double velocity, QString *errorMessa
     if (!invokeMotion([this, x, y, velocity]() {
             return m_motion.moveMultiAxisLinear(x, y, velocity, velocity * 10.0, velocity * 10.0);
         }, action, errorMessage)) {
+        Motion::AxisPosition position;
+        Motion::AxisStateSnapshot state;
+        {
+            QMutexLocker locker(&m_stateMutex);
+            position = m_position;
+            state = m_axisState;
+        }
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("%1; %2").arg(*errorMessage, motionSnapshotText(position, state));
+        }
         return false;
     }
     QString waitError;
     if (!waitForXy(x, y, &waitError)) {
+        Motion::AxisPosition position;
+        Motion::AxisStateSnapshot state;
+        {
+            QMutexLocker locker(&m_stateMutex);
+            position = m_position;
+            state = m_axisState;
+        }
         if (errorMessage) {
-            *errorMessage = QStringLiteral("%1; target=(%2,%3)").arg(waitError).arg(x, 0, 'f', 3).arg(y, 0, 'f', 3);
+            *errorMessage = QStringLiteral("%1; target=(%2,%3); %4")
+                .arg(waitError)
+                .arg(x, 0, 'f', 3)
+                .arg(y, 0, 'f', 3)
+                .arg(motionSnapshotText(position, state));
         }
         return false;
     }
@@ -1125,6 +1169,13 @@ bool MainWindow::scanRecipeLines(const ProRecipe &recipe, bool gravityMode, ProR
         QVector<ProMeasurePoint> points;
         const QMap<int, double> lineGravity = gravity.value(line.lineIndex);
         if (!scanOneLine(line, recipe, gravityMode, lineGravity, &points, errorMessage)) {
+            *errorMessage = QStringLiteral("Line %1 failed. start=(%2,%3), end=(%4,%5). %6")
+                .arg(line.lineIndex + 1)
+                .arg(line.startX, 0, 'f', 3)
+                .arg(line.startY, 0, 'f', 3)
+                .arg(line.endX, 0, 'f', 3)
+                .arg(line.endY, 0, 'f', 3)
+                .arg(*errorMessage);
             return false;
         }
         runResult->linePoints.insert(line.lineIndex, points);
@@ -1186,13 +1237,16 @@ bool MainWindow::scanOneLine(const ProPathLine &line, const ProRecipe &recipe, b
     sampleTimer.start();
     while (!m_stopRequested && timer.elapsed() < kWaitTimeoutMs) {
         Motion::AxisPosition position;
+        Motion::AxisStateSnapshot state;
         {
             QMutexLocker locker(&m_stateMutex);
             position = m_position;
+            state = m_axisState;
         }
-        const bool reached = position.valid &&
+        const bool reached = position.valid && state.valid &&
                              qAbs(position.x - line.endX) <= kPositionTolerance &&
-                             qAbs(position.y - line.endY) <= kPositionTolerance;
+                             qAbs(position.y - line.endY) <= kPositionTolerance &&
+                             readyState(state.stateX) && readyState(state.stateY);
         if (sampleTimer.elapsed() >= kSampleIntervalMs && points->size() < recipe.lineSampleNum) {
             DistanceSnapshot snapshot = distanceSnapshot();
             if (!snapshot.topValid || !snapshot.bottomValid) {
