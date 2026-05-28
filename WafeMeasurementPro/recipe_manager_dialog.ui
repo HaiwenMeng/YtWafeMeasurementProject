@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>RecipeManagerDialog</class>
+ <widget class="QDialog" name="RecipeManagerDialog">
+  <property name="windowTitle">
+   <string>&#37197;&#26041;&#31649;&#29702;</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QTableWidget" name="table_recipes"/>
+   </item>
+   <item>
+    <layout class="QFormLayout" name="formLayout">
+     <item row="0" column="0">
+      <widget class="QLabel" name="label_name">
+       <property name="text">
+        <string>&#37197;&#26041;&#21517;&#31216;</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QLineEdit" name="line_name"/>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="label_path">
+       <property name="text">
+        <string>&#27979;&#37327;&#36335;&#24452;</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <widget class="QComboBox" name="combo_path"/>
+     </item>
+     <item row="2" column="0">
+      <widget class="QLabel" name="label_thickness">
+       <property name="text">
+        <string>&#20135;&#21697;&#21402;&#24230;</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <widget class="QSpinBox" name="spin_thickness"/>
+     </item>
+     <item row="3" column="0">
+      <widget class="QLabel" name="label_size">
+       <property name="text">
+        <string>&#20135;&#21697;&#23610;&#23544;</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="1">
+      <widget class="QSpinBox" name="spin_size"/>
+     </item>
+     <item row="4" column="0">
+      <widget class="QLabel" name="label_trim">
+       <property name="text">
+        <string>&#35009;&#36793;&#38271;&#24230;</string>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="1">
+      <widget class="QDoubleSpinBox" name="double_trim"/>
+     </item>
+     <item row="5" column="0">
+      <widget class="QLabel" name="label_sample">
+       <property name="text">
+        <string>&#37319;&#26679;&#28857;&#25968;</string>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="1">
+      <widget class="QSpinBox" name="spin_sample"/>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="buttonLayout">
+     <item>
+      <widget class="QPushButton" name="button_add">
+       <property name="text">
+        <string>&#26032;&#22686;</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="button_update">
+       <property name="text">
+        <string>&#20445;&#23384;</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="button_delete">
+       <property name="text">
+        <string>&#21024;&#38500;</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="button_close">
+       <property name="text">
+        <string>&#20851;&#38381;</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

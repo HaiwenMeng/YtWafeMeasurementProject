@@ -4,4 +4,5 @@ SUBDIRS += \
     MotionCtrlDemo \
     colorFocusContrlDemo \
     AlgoDemo \
-    CalibrationTestDemo
+    CalibrationTestDemo \
+    WafeMeasurementPro

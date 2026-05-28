@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>1440</width><height>900</height></rect>
+  </property>
+  <property name="windowTitle">
+   <string>WafeMeasurementPro</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <layout class="QHBoxLayout" name="titleLayout">
+      <item><widget class="QPushButton" name="button_initialize"><property name="minimumHeight"><number>42</number></property><property name="text"><string>&#21021;&#22987;&#21270;</string></property></widget></item>
+      <item><widget class="QPushButton" name="button_recipe_manager"><property name="minimumHeight"><number>42</number></property><property name="text"><string>&#37197;&#26041;&#31649;&#29702;</string></property></widget></item>
+      <item><widget class="QPushButton" name="button_parameter"><property name="minimumHeight"><number>42</number></property><property name="text"><string>&#21442;&#25968;&#35774;&#32622;</string></property></widget></item>
+      <item><spacer name="titleSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+      <item><widget class="QPushButton" name="button_estop"><property name="minimumHeight"><number>42</number></property><property name="text"><string>&#24613;&#20572;</string></property></widget></item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="recipeLayout">
+      <item><widget class="QLabel" name="label_recipe"><property name="text"><string>&#24403;&#21069;&#37197;&#26041;</string></property></widget></item>
+      <item><widget class="QComboBox" name="combo_recipe"><property name="minimumWidth"><number>220</number></property></widget></item>
+      <item><widget class="QLabel" name="label_recipe_detail"><property name="text"><string>--</string></property></widget></item>
+      <item><spacer name="recipeSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="actionLayout">
+      <item><widget class="QPushButton" name="button_calibration"><property name="minimumHeight"><number>40</number></property><property name="text"><string>&#26657;&#20934;</string></property></widget></item>
+      <item><widget class="QPushButton" name="button_scan_gravity"><property name="minimumHeight"><number>40</number></property><property name="text"><string>&#25195;&#25551;&#37325;&#21147;&#20856;&#22411;&#29255;</string></property></widget></item>
+      <item><widget class="QPushButton" name="button_load"><property name="minimumHeight"><number>40</number></property><property name="text"><string>&#19968;&#38190;&#19978;&#19979;&#26009;</string></property></widget></item>
+      <item><widget class="QPushButton" name="button_measure"><property name="minimumHeight"><number>40</number></property><property name="text"><string>&#20135;&#21697;&#27979;&#37327;</string></property></widget></item>
+      <item><widget class="QPushButton" name="button_stop"><property name="minimumHeight"><number>40</number></property><property name="text"><string>&#20572;&#27490;</string></property></widget></item>
+      <item><spacer name="actionSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QGridLayout" name="statusGrid">
+      <item row="0" column="0"><widget class="QLabel" name="label_device_caption"><property name="text"><string>&#35774;&#22791;&#29366;&#24577;</string></property></widget></item>
+      <item row="0" column="1"><widget class="QLabel" name="label_device_state"><property name="text"><string>--</string></property></widget></item>
+      <item row="0" column="2"><widget class="QLabel" name="label_axis_caption"><property name="text"><string>XYZ&#23454;&#26102;&#20301;&#32622;</string></property></widget></item>
+      <item row="0" column="3"><widget class="QLabel" name="label_axis_position"><property name="text"><string>--</string></property></widget></item>
+      <item row="1" column="0"><widget class="QLabel" name="label_focus_caption"><property name="text"><string>&#19978;&#19979;&#20849;&#32858;&#28966;</string></property></widget></item>
+      <item row="1" column="1"><widget class="QLabel" name="label_focus_value"><property name="text"><string>--</string></property></widget></item>
+      <item row="1" column="2"><widget class="QLabel" name="label_axis_state_caption"><property name="text"><string>&#36724;&#29366;&#24577;</string></property></widget></item>
+      <item row="1" column="3"><widget class="QLabel" name="label_axis_state"><property name="text"><string>--</string></property></widget></item>
+     </layout>
+    </item>
+    <item>
+     <widget class="QSplitter" name="mainSplitter">
+      <property name="orientation"><enum>Qt::Horizontal</enum></property>
+      <widget class="QWidget" name="leftPanel">
+       <layout class="QVBoxLayout" name="leftLayout">
+        <item><widget class="QLabel" name="label_curve_title"><property name="text"><string>&#21402;&#24230;&#26354;&#32447;</string></property></widget></item>
+        <item><widget class="QWidget" name="widget_curve"><property name="minimumSize"><size><width>460</width><height>240</height></size></property></widget></item>
+        <item><widget class="QLabel" name="label_heatmap_title"><property name="text"><string>2D&#22270;&#20687;</string></property></widget></item>
+        <item><widget class="QLabel" name="label_heatmap"><property name="minimumSize"><size><width>460</width><height>260</height></size></property><property name="frameShape"><enum>QFrame::StyledPanel</enum></property><property name="text"><string>2D</string></property></widget></item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="centerPanel">
+       <layout class="QVBoxLayout" name="centerLayout">
+        <item><widget class="QLabel" name="label_surface_title"><property name="text"><string>3D&#22270;&#20687;</string></property></widget></item>
+        <item><widget class="QWidget" name="widget_surface"><property name="minimumSize"><size><width>460</width><height>560</height></size></property></widget></item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="rightPanel">
+       <layout class="QVBoxLayout" name="rightLayout">
+        <item><widget class="QLabel" name="label_result_title"><property name="text"><string>&#27979;&#37327;&#32467;&#26524;</string></property></widget></item>
+        <item><widget class="QTableWidget" name="table_results"><property name="minimumSize"><size><width>300</width><height>210</height></size></property></widget></item>
+        <item><widget class="QLabel" name="label_calibration_title"><property name="text"><string>&#26657;&#20934;&#32467;&#26524;</string></property></widget></item>
+        <item><widget class="QTableWidget" name="table_calibration"><property name="minimumSize"><size><width>300</width><height>170</height></size></property></widget></item>
+        <item><widget class="QLabel" name="label_log_title"><property name="text"><string>&#26085;&#24535;</string></property></widget></item>
+        <item><widget class="QPlainTextEdit" name="plain_log"><property name="readOnly"><bool>true</bool></property></widget></item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

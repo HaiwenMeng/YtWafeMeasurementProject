@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ParameterSettingsDialog</class>
+ <widget class="QDialog" name="ParameterSettingsDialog">
+  <property name="windowTitle">
+   <string>&#21442;&#25968;&#35774;&#32622;</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QScrollArea" name="scrollArea">
+     <property name="widgetResizable">
+      <bool>true</bool>
+     </property>
+     <widget class="QWidget" name="scrollAreaWidgetContents">
+      <layout class="QFormLayout" name="formLayout">
+       <item row="0" column="0"><widget class="QLabel" name="label_axis_ip"><property name="text"><string>&#36724;IP</string></property></widget></item>
+       <item row="0" column="1"><widget class="QLineEdit" name="line_axis_ip"/></item>
+       <item row="1" column="0"><widget class="QLabel" name="label_axis_port"><property name="text"><string>&#36724;&#31471;&#21475;</string></property></widget></item>
+       <item row="1" column="1"><widget class="QLineEdit" name="line_axis_port"/></item>
+       <item row="2" column="0"><widget class="QLabel" name="label_top_ip"><property name="text"><string>&#19978;&#20849;&#32858;&#28966;IP</string></property></widget></item>
+       <item row="2" column="1"><widget class="QLineEdit" name="line_top_ip"/></item>
+       <item row="3" column="0"><widget class="QLabel" name="label_bottom_ip"><property name="text"><string>&#19979;&#20849;&#32858;&#28966;IP</string></property></widget></item>
+       <item row="3" column="1"><widget class="QLineEdit" name="line_bottom_ip"/></item>
+       <item row="4" column="0"><widget class="QLabel" name="label_load_x"><property name="text"><string>&#19978;&#19979;&#26009;X</string></property></widget></item>
+       <item row="4" column="1"><widget class="QLineEdit" name="line_load_x"/></item>
+       <item row="5" column="0"><widget class="QLabel" name="label_load_y"><property name="text"><string>&#19978;&#19979;&#26009;Y</string></property></widget></item>
+       <item row="5" column="1"><widget class="QLineEdit" name="line_load_y"/></item>
+       <item row="6" column="0"><widget class="QLabel" name="label_wait_x8"><property name="text"><string>8&#23544;&#31561;&#24453;X</string></property></widget></item>
+       <item row="6" column="1"><widget class="QLineEdit" name="line_wait_x8"/></item>
+       <item row="7" column="0"><widget class="QLabel" name="label_wait_y8"><property name="text"><string>8&#23544;&#31561;&#24453;Y</string></property></widget></item>
+       <item row="7" column="1"><widget class="QLineEdit" name="line_wait_y8"/></item>
+       <item row="8" column="0"><widget class="QLabel" name="label_wait_x12"><property name="text"><string>12&#23544;&#31561;&#24453;X</string></property></widget></item>
+       <item row="8" column="1"><widget class="QLineEdit" name="line_wait_x12"/></item>
+       <item row="9" column="0"><widget class="QLabel" name="label_wait_y12"><property name="text"><string>12&#23544;&#31561;&#24453;Y</string></property></widget></item>
+       <item row="9" column="1"><widget class="QLineEdit" name="line_wait_y12"/></item>
+       <item row="10" column="0"><widget class="QLabel" name="label_std1_x"><property name="text"><string>&#26631;&#20934;&#29255;1 X</string></property></widget></item>
+       <item row="10" column="1"><widget class="QLineEdit" name="line_std1_x"/></item>
+       <item row="11" column="0"><widget class="QLabel" name="label_std1_y"><property name="text"><string>&#26631;&#20934;&#29255;1 Y</string></property></widget></item>
+       <item row="11" column="1"><widget class="QLineEdit" name="line_std1_y"/></item>
+       <item row="12" column="0"><widget class="QLabel" name="label_std2_x"><property name="text"><string>&#26631;&#20934;&#29255;2 X</string></property></widget></item>
+       <item row="12" column="1"><widget class="QLineEdit" name="line_std2_x"/></item>
+       <item row="13" column="0"><widget class="QLabel" name="label_std2_y"><property name="text"><string>&#26631;&#20934;&#29255;2 Y</string></property></widget></item>
+       <item row="13" column="1"><widget class="QLineEdit" name="line_std2_y"/></item>
+       <item row="14" column="0"><widget class="QLabel" name="label_std3_x"><property name="text"><string>&#26631;&#20934;&#29255;3 X</string></property></widget></item>
+       <item row="14" column="1"><widget class="QLineEdit" name="line_std3_x"/></item>
+       <item row="15" column="0"><widget class="QLabel" name="label_std3_y"><property name="text"><string>&#26631;&#20934;&#29255;3 Y</string></property></widget></item>
+       <item row="15" column="1"><widget class="QLineEdit" name="line_std3_y"/></item>
+       <item row="16" column="0"><widget class="QLabel" name="label_std4_x"><property name="text"><string>&#26631;&#20934;&#29255;4 X</string></property></widget></item>
+       <item row="16" column="1"><widget class="QLineEdit" name="line_std4_x"/></item>
+       <item row="17" column="0"><widget class="QLabel" name="label_std4_y"><property name="text"><string>&#26631;&#20934;&#29255;4 Y</string></property></widget></item>
+       <item row="17" column="1"><widget class="QLineEdit" name="line_std4_y"/></item>
+       <item row="18" column="0"><widget class="QLabel" name="label_velocity_measure"><property name="text"><string>&#27979;&#37327;&#36895;&#24230;</string></property></widget></item>
+       <item row="18" column="1"><widget class="QLineEdit" name="line_velocity_measure"/></item>
+       <item row="19" column="0"><widget class="QLabel" name="label_velocity_normal"><property name="text"><string>&#24120;&#35268;&#36895;&#24230;</string></property></widget></item>
+       <item row="19" column="1"><widget class="QLineEdit" name="line_velocity_normal"/></item>
+       <item row="20" column="0"><widget class="QLabel" name="label_scan_rate"><property name="text"><string>&#25195;&#25551;&#39057;&#29575;</string></property></widget></item>
+       <item row="20" column="1"><widget class="QLineEdit" name="line_scan_rate"/></item>
+       <item row="21" column="0"><widget class="QLabel" name="label_trigger_rate"><property name="text"><string>&#35302;&#21457;&#38388;&#38548;</string></property></widget></item>
+       <item row="21" column="1"><widget class="QLineEdit" name="line_trigger_rate"/></item>
+       <item row="22" column="0"><widget class="QLabel" name="label_z123"><property name="text"><string>Z&#26631;&#20934;&#20301;123</string></property></widget></item>
+       <item row="22" column="1"><widget class="QLineEdit" name="line_z123"/></item>
+       <item row="23" column="0"><widget class="QLabel" name="label_z4"><property name="text"><string>Z&#26631;&#20934;&#20301;4</string></property></widget></item>
+       <item row="23" column="1"><widget class="QLineEdit" name="line_z4"/></item>
+       <item row="24" column="0"><widget class="QLabel" name="label_standard1"><property name="text"><string>&#26631;&#20934;&#21402;&#24230;1</string></property></widget></item>
+       <item row="24" column="1"><widget class="QLineEdit" name="line_standard1"/></item>
+       <item row="25" column="0"><widget class="QLabel" name="label_standard2"><property name="text"><string>&#26631;&#20934;&#21402;&#24230;2</string></property></widget></item>
+       <item row="25" column="1"><widget class="QLineEdit" name="line_standard2"/></item>
+       <item row="26" column="0"><widget class="QLabel" name="label_standard3"><property name="text"><string>&#26631;&#20934;&#21402;&#24230;3</string></property></widget></item>
+       <item row="26" column="1"><widget class="QLineEdit" name="line_standard3"/></item>
+       <item row="27" column="0"><widget class="QLabel" name="label_standard4"><property name="text"><string>&#26631;&#20934;&#21402;&#24230;4</string></property></widget></item>
+       <item row="27" column="1"><widget class="QLineEdit" name="line_standard4"/></item>
+       <item row="28" column="0"><widget class="QLabel" name="label_total1"><property name="text"><string>&#26657;&#20934;&#24635;&#20540;1</string></property></widget></item>
+       <item row="28" column="1"><widget class="QLineEdit" name="line_total1"/></item>
+       <item row="29" column="0"><widget class="QLabel" name="label_total2"><property name="text"><string>&#26657;&#20934;&#24635;&#20540;2</string></property></widget></item>
+       <item row="29" column="1"><widget class="QLineEdit" name="line_total2"/></item>
+       <item row="30" column="0"><widget class="QLabel" name="label_total3"><property name="text"><string>&#26657;&#20934;&#24635;&#20540;3</string></property></widget></item>
+       <item row="30" column="1"><widget class="QLineEdit" name="line_total3"/></item>
+       <item row="31" column="0"><widget class="QLabel" name="label_total4"><property name="text"><string>&#26657;&#20934;&#24635;&#20540;4</string></property></widget></item>
+       <item row="31" column="1"><widget class="QLineEdit" name="line_total4"/></item>
+       <item row="32" column="0"><widget class="QLabel" name="label_trim"><property name="text"><string>&#40664;&#35748;&#35009;&#36793;</string></property></widget></item>
+       <item row="32" column="1"><widget class="QLineEdit" name="line_trim"/></item>
+       <item row="33" column="0"><widget class="QLabel" name="label_output_dir"><property name="text"><string>&#32467;&#26524;&#30446;&#24405;</string></property></widget></item>
+       <item row="33" column="1"><widget class="QLineEdit" name="line_output_dir"/></item>
+       <item row="34" column="0"><widget class="QLabel" name="label_line_sample"><property name="text"><string>&#37319;&#26679;&#28857;&#25968;</string></property></widget></item>
+       <item row="34" column="1"><widget class="QLineEdit" name="line_line_sample"/></item>
+       <item row="35" column="0"><widget class="QLabel" name="label_chord"><property name="text"><string>&#24358;&#38271;</string></property></widget></item>
+       <item row="35" column="1"><widget class="QLineEdit" name="line_chord"/></item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="buttonLayout">
+     <item><widget class="QPushButton" name="button_reload"><property name="text"><string>&#37325;&#26032;&#36733;&#20837;</string></property></widget></item>
+     <item><spacer name="horizontalSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+     <item><widget class="QPushButton" name="button_save"><property name="text"><string>&#20445;&#23384;</string></property></widget></item>
+     <item><widget class="QPushButton" name="button_cancel"><property name="text"><string>&#21462;&#28040;</string></property></widget></item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
