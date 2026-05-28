@@ -564,12 +564,15 @@ void MainWindow::onCalibrationClicked()
     m_future = QtConcurrent::run([this, settings]() mutable {
         QString error;
         const bool ok = runCalibration(settings, &error);
+        const bool canceled = m_stopRequested;
         QString loadError;
-        if (!moveLoadPosition(&loadError)) {
+        if (!canceled && !moveLoadPosition(&loadError)) {
             error = error.isEmpty() ? loadError : QStringLiteral("%1; %2").arg(error, loadError);
         }
-        QMetaObject::invokeMethod(this, [this, ok, error, settings]() {
-            if (ok) {
+        QMetaObject::invokeMethod(this, [this, ok, error, settings, canceled]() {
+            if (canceled) {
+                appendLog(QStringLiteral("Calibration stopped."));
+            } else if (ok) {
                 m_settings = settings;
                 updateCalibrationTable(m_settings);
                 appendLog(QString(u8"校准完成"));
@@ -600,13 +603,16 @@ void MainWindow::onScanGravityClicked()
         if (ok) {
             ok = saveGravityFiles(recipe, result, &error);
         }
+        const bool canceled = m_stopRequested;
         QString loadError;
-        if (!moveLoadPosition(&loadError)) {
+        if (!canceled && !moveLoadPosition(&loadError)) {
             error = error.isEmpty() ? loadError : QStringLiteral("%1; %2").arg(error, loadError);
             ok = false;
         }
-        QMetaObject::invokeMethod(this, [this, ok, result, error]() {
-            if (ok) {
+        QMetaObject::invokeMethod(this, [this, ok, result, error, canceled]() {
+            if (canceled) {
+                appendLog(QStringLiteral("Gravity scan stopped."));
+            } else if (ok) {
                 updateCurve(result.linePoints.isEmpty() ? QVector<ProMeasurePoint>() : result.linePoints.last());
                 updateHeatMap(result);
                 updateSurface(result);
@@ -677,15 +683,18 @@ void MainWindow::onMeasureClicked()
         if (ok) {
             ok = writeResultFiles(&result, &error);
         }
+        const bool canceled = m_stopRequested;
         QString loadError;
-        if (!moveLoadPosition(&loadError)) {
+        if (!canceled && !moveLoadPosition(&loadError)) {
             error = error.isEmpty() ? loadError : QStringLiteral("%1; %2").arg(error, loadError);
             ok = false;
         }
         result.success = ok;
         result.errorMessage = error;
-        QMetaObject::invokeMethod(this, [this, result]() {
-            if (result.success) {
+        QMetaObject::invokeMethod(this, [this, result, canceled]() {
+            if (canceled) {
+                appendLog(QStringLiteral("Measure stopped."));
+            } else if (result.success) {
                 finishRunOnUi(result, QString(u8"测量完成"));
             } else {
                 showError(result.errorMessage);
