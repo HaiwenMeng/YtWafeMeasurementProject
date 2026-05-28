@@ -102,6 +102,7 @@ private:
     bool scanRecipeLines(const ProRecipe &recipe, bool gravityMode, ProRunResult *runResult, QString *errorMessage);
     bool scanOneLine(const ProPathLine &line, const ProRecipe &recipe, bool gravityMode,
                      const QMap<int, double> &gravityMap, QVector<ProMeasurePoint> *points, QString *errorMessage);
+    bool sampleCenterPoint(const ProRecipe &recipe, ProMeasurePoint *point, QString *errorMessage);
     DistanceSnapshot distanceSnapshot() const;
     double calibrationTotalForRecipe(const ProRecipe &recipe) const;
     Wafer::WaferDataset buildDataset(const ProRecipe &recipe, const ProRunResult &runResult) const;

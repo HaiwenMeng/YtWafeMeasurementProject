@@ -16,6 +16,7 @@
 #include <QMessageBox>
 #include <QMetaObject>
 #include <QPainter>
+#include <QPointF>
 #include <QTextStream>
 #include <QThread>
 #include <QVBoxLayout>
@@ -60,6 +61,76 @@ QString nowStamp()
 bool validFinite(double value)
 {
     return qIsFinite(value) && !qFuzzyIsNull(value);
+}
+
+bool centerForRecipe(const ProRecipe &recipe, const ParamSettings &settings, double *centerX, double *centerY, QString *errorMessage)
+{
+    QString xText;
+    QString yText;
+    if (recipe.productSize == 12) {
+        xText = settings.posWaitX_12;
+        yText = settings.posWaitY_12;
+    } else if (recipe.productSize == 6) {
+        xText = settings.posWaitX_6;
+        yText = settings.posWaitY_6;
+    } else {
+        xText = settings.posWaitX_8;
+        yText = settings.posWaitY_8;
+    }
+
+    bool okX = false;
+    bool okY = false;
+    const double x = xText.toDouble(&okX);
+    const double y = yText.toDouble(&okY);
+    if (!okX || !okY || !qIsFinite(x) || !qIsFinite(y)) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("Wait position is invalid for product size %1.").arg(recipe.productSize);
+        }
+        return false;
+    }
+    *centerX = x;
+    *centerY = y;
+    return true;
+}
+
+double waferRadius(int productSize)
+{
+    if (productSize == 12) {
+        return 150.0;
+    }
+    if (productSize == 6) {
+        return 75.0;
+    }
+    return 100.0;
+}
+
+double waferMoveRadius(int productSize)
+{
+    if (productSize == 12) {
+        return 152.0;
+    }
+    if (productSize == 6) {
+        return 77.0;
+    }
+    return 102.0;
+}
+
+double pathStepDeg(int measurePath)
+{
+    switch (measurePath) {
+    case 1:
+        return 0.0;
+    case 2:
+        return 90.0;
+    case 4:
+        return 45.0;
+    case 6:
+        return 30.0;
+    case 8:
+        return 22.5;
+    default:
+        return 0.0;
+    }
 }
 }
 
@@ -968,42 +1039,58 @@ QVector<ProPathLine> MainWindow::buildPathLines(const ProRecipe &recipe, const P
         *errorMessage = QStringLiteral("Unsupported measure path: %1").arg(recipe.measurePath);
         return {};
     }
-    const double centerX = recipe.productSize == 12 ? settings.posWaitX_12.toDouble() : settings.posWaitX_8.toDouble();
-    const double centerY = recipe.productSize == 12 ? settings.posWaitY_12.toDouble() : settings.posWaitY_8.toDouble();
-    if (!qIsFinite(centerX) || !qIsFinite(centerY)) {
-        *errorMessage = QStringLiteral("Wait position is invalid for product size %1.").arg(recipe.productSize);
+
+    double centerX = 0.0;
+    double centerY = 0.0;
+    if (!centerForRecipe(recipe, settings, &centerX, &centerY, errorMessage)) {
         return {};
     }
-    double radius = 100.0;
-    if (recipe.productSize == 6) {
-        radius = 75.0;
-    } else if (recipe.productSize == 12) {
-        radius = 150.0;
-    }
-    radius -= recipe.trimSize;
-    if (radius <= 0.0) {
+
+    const double trim = recipe.trimSize;
+    const double radiusOuter = waferMoveRadius(recipe.productSize);
+    const double radiusInner = waferRadius(recipe.productSize) - trim;
+    if (radiusInner <= 0.0 || radiusOuter <= 0.0) {
         *errorMessage = QStringLiteral("Scan radius is invalid. size=%1 trim=%2").arg(recipe.productSize).arg(recipe.trimSize);
         return {};
     }
 
+    const double startAngleDeg = settings.IsNewBowAlg.toInt() == 0 ? 258.75 : 270.0;
+    const double stepAngleDeg = pathStepDeg(recipe.measurePath);
+    const double chordLength = settings.ChordLength.toDouble();
+    bool limitByChord = false;
+    double chordLimitY = -radiusInner;
+    if (chordLength > 0.0 && chordLength < 2.0 * radiusInner) {
+        chordLimitY = -qSqrt(radiusInner * radiusInner - (chordLength / 2.0) * (chordLength / 2.0));
+        limitByChord = true;
+    }
+
     QVector<ProPathLine> lines;
     lines.reserve(recipe.measurePath);
-    const double step = recipe.measurePath == 1 ? 0.0 : 180.0 / double(recipe.measurePath);
-    for (int i = 0; i < recipe.measurePath; ++i) {
-        const double angle = qDegreesToRadians(i * step);
-        const double dx = qCos(angle) * radius;
-        const double dy = qSin(angle) * radius;
+    for (int lineIndex = 0; lineIndex < recipe.measurePath; ++lineIndex) {
+        const double angleDeg = startAngleDeg - stepAngleDeg * lineIndex;
+        const double rad = qDegreesToRadians(angleDeg);
+        QPointF startPoint(radiusOuter * qCos(rad), radiusOuter * qSin(rad));
+        if (lineIndex % 2 != 0) {
+            startPoint *= -1.0;
+        }
+        QPointF endPoint = -startPoint;
+
+        if (limitByChord && startPoint.y() < chordLimitY) {
+            const double ratio = startPoint.x() / startPoint.y();
+            const double newY = chordLimitY - trim;
+            startPoint = QPointF(ratio * newY, newY);
+        }
+
         ProPathLine line;
-        line.lineIndex = i;
-        line.startX = centerX - dx;
-        line.startY = centerY - dy;
-        line.endX = centerX + dx;
-        line.endY = centerY + dy;
+        line.lineIndex = lineIndex;
+        line.startX = centerX - startPoint.x();
+        line.startY = centerY + startPoint.y();
+        line.endX = centerX - endPoint.x();
+        line.endY = centerY + endPoint.y();
         lines.append(line);
     }
     return lines;
 }
-
 bool MainWindow::scanRecipeLines(const ProRecipe &recipe, bool gravityMode, ProRunResult *runResult, QString *errorMessage)
 {
     runResult->points.clear();
@@ -1036,6 +1123,30 @@ bool MainWindow::scanRecipeLines(const ProRecipe &recipe, bool gravityMode, ProR
     if (runResult->points.isEmpty()) {
         *errorMessage = QStringLiteral("Scan produced zero points.");
         return false;
+    }
+
+    ProMeasurePoint centerPoint;
+    if (!sampleCenterPoint(recipe, &centerPoint, errorMessage)) {
+        return false;
+    }
+    centerPoint.sampleIndex = recipe.lineSampleNum;
+    for (auto it = runResult->linePoints.begin(); it != runResult->linePoints.end(); ++it) {
+        ProMeasurePoint lineCenter = centerPoint;
+        lineCenter.lineIndex = it.key();
+        if (gravityMode) {
+            lineCenter.zGravity = (lineCenter.bottomDistance - lineCenter.topDistance) / 2.0;
+            lineCenter.hasZGravity = true;
+        } else {
+            const QMap<int, double> lineGravity = gravity.value(it.key());
+            if (!lineGravity.contains(lineCenter.sampleIndex)) {
+                *errorMessage = QStringLiteral("Missing center gravity value. line=%1 sample=%2").arg(it.key()).arg(lineCenter.sampleIndex);
+                return false;
+            }
+            lineCenter.zGravity = lineGravity.value(lineCenter.sampleIndex);
+            lineCenter.hasZGravity = true;
+        }
+        it.value().append(lineCenter);
+        runResult->points.append(lineCenter);
     }
     return true;
 }
@@ -1126,6 +1237,61 @@ bool MainWindow::scanOneLine(const ProPathLine &line, const ProRecipe &recipe, b
     return true;
 }
 
+bool MainWindow::sampleCenterPoint(const ProRecipe &recipe, ProMeasurePoint *point, QString *errorMessage)
+{
+    double centerX = 0.0;
+    double centerY = 0.0;
+    if (!centerForRecipe(recipe, m_settings, &centerX, &centerY, errorMessage)) {
+        return false;
+    }
+    if (!moveXy(centerX, centerY, m_settings.velocityMeasure.toDouble(), errorMessage)) {
+        return false;
+    }
+
+    double topSum = 0.0;
+    double bottomSum = 0.0;
+    int sampleCount = 0;
+    for (int i = 0; i < 100 && !m_stopRequested; ++i) {
+        const DistanceSnapshot snapshot = distanceSnapshot();
+        if (!snapshot.topValid || !snapshot.bottomValid || !qIsFinite(snapshot.top) || !qIsFinite(snapshot.bottom)) {
+            *errorMessage = QStringLiteral("Invalid color focus sample at center point.");
+            return false;
+        }
+        topSum += snapshot.top;
+        bottomSum += snapshot.bottom;
+        ++sampleCount;
+        QThread::msleep(10);
+    }
+    if (m_stopRequested) {
+        *errorMessage = QStringLiteral("Center point sampling canceled.");
+        return false;
+    }
+    if (sampleCount <= 0) {
+        *errorMessage = QStringLiteral("Center point sample count is zero.");
+        return false;
+    }
+
+    Motion::AxisPosition position;
+    {
+        QMutexLocker locker(&m_stateMutex);
+        position = m_position;
+    }
+    if (!position.valid) {
+        *errorMessage = QStringLiteral("Motion position is invalid at center point.");
+        return false;
+    }
+
+    point->x = centerX;
+    point->y = centerY;
+    point->z = position.z;
+    point->topDistance = topSum / double(sampleCount);
+    point->bottomDistance = bottomSum / double(sampleCount);
+    point->thickness = calibrationTotalForRecipe(recipe) - point->topDistance - point->bottomDistance;
+    point->encoder = qRound(centerX);
+    point->hasZGravity = false;
+    return true;
+}
+
 double MainWindow::calibrationTotalForRecipe(const ProRecipe &recipe) const
 {
     struct Candidate
@@ -1158,8 +1324,11 @@ Wafer::WaferDataset MainWindow::buildDataset(const ProRecipe &recipe, const ProR
     dataset.productSize = recipe.productSize;
     dataset.nominalThickness = recipe.productThickness;
     dataset.calibrationTotal = calibrationTotalForRecipe(recipe);
-    dataset.centerX = recipe.productSize == 12 ? m_settings.posWaitX_12.toDouble() : m_settings.posWaitX_8.toDouble();
-    dataset.centerY = recipe.productSize == 12 ? m_settings.posWaitY_12.toDouble() : m_settings.posWaitY_8.toDouble();
+    double centerX = 0.0;
+    double centerY = 0.0;
+    centerForRecipe(recipe, m_settings, &centerX, &centerY, nullptr);
+    dataset.centerX = centerX;
+    dataset.centerY = centerY;
     dataset.containsZGravity = true;
     dataset.thicknessOnly = false;
 
@@ -1200,9 +1369,12 @@ Wafer::AlgorithmOptions MainWindow::algorithmOptions(const ProRecipe &recipe) co
     options.chordLength = m_settings.ChordLength.toDouble();
     options.useNewBowAlg = m_settings.IsNewBowAlg.toInt() != 0;
     options.useNewWarpAlg = m_settings.IsNewWarpAlg.toInt() != 0;
-    options.centerX = recipe.productSize == 12 ? m_settings.posWaitX_12.toDouble() : m_settings.posWaitX_8.toDouble();
-    options.centerY = recipe.productSize == 12 ? m_settings.posWaitY_12.toDouble() : m_settings.posWaitY_8.toDouble();
-    options.radius = recipe.productSize == 12 ? 150.0 : (recipe.productSize == 6 ? 75.0 : 100.0);
+    double centerX = 0.0;
+    double centerY = 0.0;
+    centerForRecipe(recipe, m_settings, &centerX, &centerY, nullptr);
+    options.centerX = centerX;
+    options.centerY = centerY;
+    options.radius = waferRadius(recipe.productSize);
     options.useCsvZGravity = true;
     options.allowDebugZeroZGravity = false;
     return options;
