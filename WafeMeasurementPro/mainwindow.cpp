@@ -898,12 +898,21 @@ bool MainWindow::moveLoadPosition(QString *errorMessage)
 
 bool MainWindow::moveXy(double x, double y, double velocity, QString *errorMessage)
 {
+    appendLog(QStringLiteral("Move XY target: X=%1 Y=%2 V=%3").arg(x, 0, 'f', 3).arg(y, 0, 'f', 3).arg(velocity, 0, 'f', 3));
+    const QString action = QStringLiteral("Move XY target=(%1,%2)").arg(x, 0, 'f', 3).arg(y, 0, 'f', 3);
     if (!invokeMotion([this, x, y, velocity]() {
             return m_motion.moveMultiAxisLinear(x, y, velocity, velocity * 10.0, velocity * 10.0);
-        }, QStringLiteral("Move XY"), errorMessage)) {
+        }, action, errorMessage)) {
         return false;
     }
-    return waitForXy(x, y, errorMessage);
+    QString waitError;
+    if (!waitForXy(x, y, &waitError)) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("%1; target=(%2,%3)").arg(waitError).arg(x, 0, 'f', 3).arg(y, 0, 'f', 3);
+        }
+        return false;
+    }
+    return true;
 }
 
 bool MainWindow::moveZ(double z, QString *errorMessage)
