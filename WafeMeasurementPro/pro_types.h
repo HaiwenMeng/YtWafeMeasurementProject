@@ -32,6 +32,7 @@ struct ProMeasurePoint
     int sampleIndex = -1;
     int encoder = 0;
     bool hasZGravity = false;
+    bool isCenter = false;
 };
 
 struct ProRunResult
@@ -55,6 +56,10 @@ struct ProPathLine
     double startY = 0.0;
     double endX = 0.0;
     double endY = 0.0;
+    int triggerAxis = 0;
+    int triggerHead = 0;
+    int triggerTail = 0;
+    int triggerInterval = 1;
 };
 
 #endif // WAFEMEASUREMENTPRO_PRO_TYPES_H

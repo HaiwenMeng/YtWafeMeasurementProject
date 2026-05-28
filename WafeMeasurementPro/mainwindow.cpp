@@ -17,6 +17,7 @@
 #include <QMetaObject>
 #include <QPainter>
 #include <QPointF>
+#include <QSet>
 #include <QTextStream>
 #include <QThread>
 #include <QVBoxLayout>
@@ -28,6 +29,7 @@
 #include <QtMath>
 
 #include <algorithm>
+#include <cmath>
 #include <functional>
 #include <limits>
 #include <numeric>
@@ -139,6 +141,95 @@ QString motionSnapshotText(const Motion::AxisPosition &position, const Motion::A
         .arg(state.valid ? QString::number(state.errorY) : QStringLiteral("--"))
         .arg(state.valid ? QString::number(state.errorZ) : QStringLiteral("--"));
 }
+
+int changeToEncoderValue(double position)
+{
+    return qRound(position * 2000.0);
+}
+
+float changeToPositionValue(int encoder)
+{
+    return qRound(encoder / 2000.0 * 100.0) / 100.0f;
+}
+
+int closerToAxis(double angleDeg)
+{
+    angleDeg = std::fmod(std::fmod(angleDeg, 360.0) + 360.0, 360.0);
+    double dx = qMin(qAbs(angleDeg - 0.0), qAbs(angleDeg - 180.0));
+    dx = qMin(dx, 360.0 - dx);
+    double dy = qMin(qAbs(angleDeg - 90.0), qAbs(angleDeg - 270.0));
+    dy = qMin(dy, 360.0 - dy);
+    return dx <= dy ? 0 : 1;
+}
+
+int triggerAxisForLine(int measurePath, int lineIndex)
+{
+    const double angle = 270.0 - pathStepDeg(measurePath) * lineIndex;
+    return closerToAxis(angle);
+}
+
+int pointEncoderKey(const ProRecipe &recipe, const ProMeasurePoint &point)
+{
+    return triggerAxisForLine(recipe.measurePath, point.lineIndex) == 0
+        ? changeToEncoderValue(point.x)
+        : changeToEncoderValue(point.y);
+}
+
+QVector<int> findEncoderIntersection(const QVector<int> &a, const QVector<int> &b, int step, int *offset)
+{
+    QSet<int> setA;
+    for (int value : a) {
+        setA.insert(value);
+    }
+    QSet<int> direct;
+    for (int value : b) {
+        if (setA.contains(value)) {
+            direct.insert(value);
+        }
+    }
+    if (!direct.isEmpty()) {
+        *offset = 0;
+        QVector<int> result = direct.values().toVector();
+        std::sort(result.begin(), result.end());
+        return result;
+    }
+    if (a.isEmpty() || b.isEmpty() || step == 0) {
+        *offset = 0;
+        return {};
+    }
+
+    const int absStep = qAbs(step);
+    const int modA = (a.first() % absStep + absStep) % absStep;
+    const int modB = (b.first() % absStep + absStep) % absStep;
+    *offset = modA - modB;
+    QSet<int> shiftedB;
+    for (int value : b) {
+        shiftedB.insert(value + *offset);
+    }
+    QVector<int> result;
+    for (int value : a) {
+        if (shiftedB.contains(value)) {
+            result.append(value);
+        }
+    }
+    std::sort(result.begin(), result.end());
+    return result;
+}
+
+int inferEncoderStep(const QVector<int> &keys)
+{
+    if (keys.size() < 2) {
+        return 1;
+    }
+    int best = qAbs(keys.at(1) - keys.at(0));
+    for (int i = 2; i < keys.size(); ++i) {
+        const int delta = qAbs(keys.at(i) - keys.at(i - 1));
+        if (delta > 0 && (best <= 0 || delta < best)) {
+            best = delta;
+        }
+    }
+    return qMax(1, best);
+}
 }
 
 MainWindow::MainWindow(QWidget *parent)
@@ -161,6 +252,9 @@ MainWindow::MainWindow(QWidget *parent)
       m_bottomDistance(0.0),
       m_lastEncoder(0),
       m_curveView(nullptr),
+      m_curveSeries(nullptr),
+      m_curveAxisX(nullptr),
+      m_curveAxisY(nullptr),
       m_heatLegendView(nullptr),
       m_surface(nullptr),
       m_surfaceContainer(nullptr)
@@ -260,6 +354,18 @@ void MainWindow::setupCharts()
     QChart *curveChart = new QChart;
     curveChart->legend()->setVisible(false);
     curveChart->setTitle(QString(u8"当前线厚度曲线"));
+    m_curveSeries = new QLineSeries(curveChart);
+    m_curveAxisX = new QValueAxis(curveChart);
+    m_curveAxisY = new QValueAxis(curveChart);
+    m_curveAxisX->setTitleText(QStringLiteral("Sample"));
+    m_curveAxisY->setTitleText(QStringLiteral("THK"));
+    m_curveAxisX->setRange(0, 1);
+    m_curveAxisY->setRange(0, 1);
+    curveChart->addSeries(m_curveSeries);
+    curveChart->addAxis(m_curveAxisX, Qt::AlignBottom);
+    curveChart->addAxis(m_curveAxisY, Qt::AlignLeft);
+    m_curveSeries->attachAxis(m_curveAxisX);
+    m_curveSeries->attachAxis(m_curveAxisY);
     m_curveView = new QChartView(curveChart, ui->widget_curve);
     m_curveView->setRenderHint(QPainter::Antialiasing);
     QVBoxLayout *curveLayout = new QVBoxLayout(ui->widget_curve);
@@ -603,37 +709,78 @@ void MainWindow::onScanGravityClicked()
     if (m_busy) {
         return;
     }
+    if (QMessageBox::question(this, QString(u8"扫描典型片提示"),
+                              QString(u8"第一步:即将扫描典型片反面数据,请确保有WaferID面朝上,且箭头指向Notch口.")) != QMessageBox::Yes) {
+        return;
+    }
+
     const ProRecipe recipe = currentRecipe();
-    setBusy(true, QString(u8"扫描重力补偿"));
+    setBusy(true, QString(u8"扫描反面重力数据"));
     m_stopRequested = false;
     m_future = QtConcurrent::run([this, recipe]() {
-        ProRunResult result;
+        ProRunResult oppositeResult;
         QString error;
-        bool ok = scanRecipeLines(recipe, true, &result, &error);
-        if (ok) {
-            ok = saveGravityFiles(recipe, result, &error);
-        }
+        bool ok = scanRecipeLines(recipe, true, &oppositeResult, &error);
         const bool canceled = m_stopRequested;
         QString loadError;
         if (!canceled && !moveLoadPosition(&loadError)) {
-            appendLog(QStringLiteral("Move to load position failed after gravity scan: %1").arg(loadError));
+            appendLog(QStringLiteral("Move to load position failed after opposite gravity scan: %1").arg(loadError));
             if (ok) {
                 error = loadError;
                 ok = false;
             }
         }
-        QMetaObject::invokeMethod(this, [this, ok, result, error, canceled]() {
+
+        QMetaObject::invokeMethod(this, [this, recipe, oppositeResult, ok, error, canceled]() mutable {
             if (canceled) {
-                appendLog(QStringLiteral("Gravity scan stopped."));
-            } else if (ok) {
-                updateCurve(result.linePoints.isEmpty() ? QVector<ProMeasurePoint>() : result.linePoints.last());
-                updateHeatMap(result);
-                updateSurface(result);
-                appendLog(QString(u8"重力补偿文件已生成"));
-            } else {
-                showError(error);
+                appendLog(QStringLiteral("Opposite gravity scan stopped."));
+                setBusy(false, QStringLiteral("Ready"));
+                return;
             }
-            setBusy(false, QStringLiteral("Ready"));
+            if (!ok) {
+                showError(error);
+                setBusy(false, QStringLiteral("Ready"));
+                return;
+            }
+            if (QMessageBox::question(this, QString(u8"扫描典型片提示"),
+                                      QString(u8"第二步:请沿Y轴左右翻转晶圆,确保无WaferID面朝上,且箭头依然指向Notch口.")) != QMessageBox::Yes) {
+                appendLog(QStringLiteral("Normal gravity scan canceled by user."));
+                setBusy(false, QStringLiteral("Ready"));
+                return;
+            }
+
+            setBusy(true, QString(u8"扫描正面重力数据"));
+            m_stopRequested = false;
+            m_future = QtConcurrent::run([this, recipe, oppositeResult]() mutable {
+                ProRunResult normalResult;
+                QString error;
+                bool ok = scanRecipeLines(recipe, true, &normalResult, &error);
+                if (ok) {
+                    ok = saveGravityFiles(recipe, normalResult, oppositeResult, &error);
+                }
+                const bool canceled = m_stopRequested;
+                QString loadError;
+                if (!canceled && !moveLoadPosition(&loadError)) {
+                    appendLog(QStringLiteral("Move to load position failed after normal gravity scan: %1").arg(loadError));
+                    if (ok) {
+                        error = loadError;
+                        ok = false;
+                    }
+                }
+                QMetaObject::invokeMethod(this, [this, ok, normalResult, error, canceled]() {
+                    if (canceled) {
+                        appendLog(QStringLiteral("Normal gravity scan stopped."));
+                    } else if (ok) {
+                        updateCurve(normalResult.linePoints.isEmpty() ? QVector<ProMeasurePoint>() : normalResult.linePoints.last());
+                        updateHeatMap(normalResult);
+                        updateSurface(normalResult);
+                        appendLog(QString(u8"重力补偿文件已生成"));
+                    } else {
+                        showError(error);
+                    }
+                    setBusy(false, QStringLiteral("Ready"));
+                }, Qt::QueuedConnection);
+            });
         }, Qt::QueuedConnection);
     });
 }
@@ -905,15 +1052,34 @@ bool MainWindow::initializeDevices(QString *errorMessage)
         !invokeFocus(m_bottomFocus, [this]() { return m_bottomFocus->ConnectDevice(m_settings.colorFocusIpBottom); }, QStringLiteral("Connect bottom color focus"), errorMessage)) {
         return false;
     }
-    const int scanRate = m_settings.scanRate.toInt();
-    if (!invokeFocus(m_topFocus, [this, scanRate]() { return m_topFocus->StartAcquisition(TriggerContinue, qMax(20, 1000 / qMax(1, scanRate))); }, QStringLiteral("Start top acquisition"), errorMessage) ||
-        !invokeFocus(m_bottomFocus, [this, scanRate]() { return m_bottomFocus->StartAcquisition(TriggerContinue, qMax(20, 1000 / qMax(1, scanRate))); }, QStringLiteral("Start bottom acquisition"), errorMessage)) {
-        return false;
-    }
-    if (!waitForFocusSamples(errorMessage)) {
+    if (!startContinuousFocusSamples(errorMessage)) {
         return false;
     }
     return true;
+}
+
+bool MainWindow::startContinuousFocusSamples(QString *errorMessage)
+{
+    {
+        QMutexLocker locker(&m_stateMutex);
+        m_topValid = false;
+        m_bottomValid = false;
+    }
+    const int scanRate = qMax(1, m_settings.scanRate.toInt());
+    const int pollIntervalMs = qMax(20, 1000 / scanRate);
+    if (!invokeFocus(m_topFocus, [this, pollIntervalMs]() {
+            return m_topFocus->StopAcquisition() &&
+                   m_topFocus->CloseAcquisitionEvent() &&
+                   m_topFocus->StartAcquisition(TriggerContinue, pollIntervalMs);
+        }, QStringLiteral("Start top continuous acquisition"), errorMessage) ||
+        !invokeFocus(m_bottomFocus, [this, pollIntervalMs]() {
+            return m_bottomFocus->StopAcquisition() &&
+                   m_bottomFocus->CloseAcquisitionEvent() &&
+                   m_bottomFocus->StartAcquisition(TriggerContinue, pollIntervalMs);
+        }, QStringLiteral("Start bottom continuous acquisition"), errorMessage)) {
+        return false;
+    }
+    return waitForFocusSamples(errorMessage);
 }
 
 bool MainWindow::moveLoadPosition(QString *errorMessage)
@@ -1119,34 +1285,66 @@ QVector<ProPathLine> MainWindow::buildPathLines(const ProRecipe &recipe, const P
         limitByChord = true;
     }
 
+    const double samplingInterval = 0.02;
     QVector<ProPathLine> lines;
     lines.reserve(recipe.measurePath);
     for (int lineIndex = 0; lineIndex < recipe.measurePath; ++lineIndex) {
         const double angleDeg = startAngleDeg - stepAngleDeg * lineIndex;
         const double rad = qDegreesToRadians(angleDeg);
-        QPointF startPoint(radiusOuter * qCos(rad), radiusOuter * qSin(rad));
-        if (lineIndex % 2 != 0) {
-            startPoint *= -1.0;
-        }
-        QPointF endPoint = -startPoint;
 
-        if (limitByChord && startPoint.y() < chordLimitY) {
-            const double ratio = startPoint.x() / startPoint.y();
-            const double newY = chordLimitY - trim;
-            startPoint = QPointF(ratio * newY, newY);
+        QPointF startInner(radiusInner * qCos(rad), radiusInner * qSin(rad));
+        if (lineIndex % 2 != 0) {
+            startInner *= -1.0;
         }
+        QPointF endInner = -startInner;
+        if (limitByChord && startInner.y() < chordLimitY) {
+            const double ratio = startInner.x() / startInner.y();
+            startInner = QPointF(ratio * chordLimitY, chordLimitY);
+        }
+
+        QPointF startOuter(radiusOuter * qCos(rad), radiusOuter * qSin(rad));
+        if (lineIndex % 2 != 0) {
+            startOuter *= -1.0;
+        }
+        QPointF endOuter = -startOuter;
+        if (limitByChord && startOuter.y() < chordLimitY) {
+            const double ratio = startOuter.x() / startOuter.y();
+            const double newY = chordLimitY - trim;
+            startOuter = QPointF(ratio * newY, newY);
+        }
+
+        const double dx = endInner.x() - startInner.x();
+        const double dy = endInner.y() - startInner.y();
+        const double length = qSqrt(dx * dx + dy * dy);
+        if (length <= 0.0) {
+            *errorMessage = QStringLiteral("Scan line length is invalid. line=%1").arg(lineIndex + 1);
+            return {};
+        }
+
+        const int triggerAxis = settings.IsNewBowAlg.toInt() != 0 ? triggerAxisForLine(recipe.measurePath, lineIndex) : 0;
+        const double triggerIntervalMm = triggerAxis == 0
+            ? samplingInterval * (qAbs(dx) / length)
+            : samplingInterval * (qAbs(dy) / length);
 
         ProPathLine line;
         line.lineIndex = lineIndex;
-        line.startX = centerX - startPoint.x();
-        line.startY = centerY + startPoint.y();
-        line.endX = centerX - endPoint.x();
-        line.endY = centerY + endPoint.y();
+        line.startX = centerX - startOuter.x();
+        line.startY = centerY + startOuter.y();
+        line.endX = centerX - endOuter.x();
+        line.endY = centerY + endOuter.y();
+        line.triggerAxis = triggerAxis;
+        line.triggerInterval = qMax(1, changeToEncoderValue(triggerIntervalMm));
+        if (triggerAxis == 0) {
+            line.triggerHead = changeToEncoderValue(centerX - startInner.x());
+            line.triggerTail = changeToEncoderValue(centerX - endInner.x());
+        } else {
+            line.triggerHead = changeToEncoderValue(centerY - endInner.y());
+            line.triggerTail = changeToEncoderValue(centerY - startInner.y());
+        }
         lines.append(line);
     }
     return lines;
-}
-bool MainWindow::scanRecipeLines(const ProRecipe &recipe, bool gravityMode, ProRunResult *runResult, QString *errorMessage)
+}bool MainWindow::scanRecipeLines(const ProRecipe &recipe, bool gravityMode, ProRunResult *runResult, QString *errorMessage)
 {
     runResult->points.clear();
     runResult->linePoints.clear();
@@ -1187,11 +1385,16 @@ bool MainWindow::scanRecipeLines(const ProRecipe &recipe, bool gravityMode, ProR
         return false;
     }
 
+    if (!startContinuousFocusSamples(errorMessage)) {
+        return false;
+    }
+
     ProMeasurePoint centerPoint;
     if (!sampleCenterPoint(recipe, &centerPoint, errorMessage)) {
         return false;
     }
     centerPoint.sampleIndex = recipe.lineSampleNum;
+    centerPoint.isCenter = true;
     for (auto it = runResult->linePoints.begin(); it != runResult->linePoints.end(); ++it) {
         ProMeasurePoint lineCenter = centerPoint;
         lineCenter.lineIndex = it.key();
@@ -1200,11 +1403,11 @@ bool MainWindow::scanRecipeLines(const ProRecipe &recipe, bool gravityMode, ProR
             lineCenter.hasZGravity = true;
         } else {
             const QMap<int, double> lineGravity = gravity.value(it.key());
-            if (!lineGravity.contains(lineCenter.sampleIndex)) {
-                *errorMessage = QStringLiteral("Missing center gravity value. line=%1 sample=%2").arg(it.key()).arg(lineCenter.sampleIndex);
+            if (!lineGravity.contains(lineCenter.encoder)) {
+                *errorMessage = QStringLiteral("Missing center gravity value. line=%1 encoder=%2").arg(it.key() + 1).arg(lineCenter.encoder);
                 return false;
             }
-            lineCenter.zGravity = lineGravity.value(lineCenter.sampleIndex);
+            lineCenter.zGravity = lineGravity.value(lineCenter.encoder);
             lineCenter.hasZGravity = true;
         }
         it.value().append(lineCenter);
@@ -1218,19 +1421,59 @@ bool MainWindow::scanOneLine(const ProPathLine &line, const ProRecipe &recipe, b
 {
     points->clear();
     if (!gravityMode && gravityMap.isEmpty()) {
-        *errorMessage = QStringLiteral("Gravity data is empty for line %1.").arg(line.lineIndex);
+        *errorMessage = QStringLiteral("Gravity data is empty for line %1.").arg(line.lineIndex + 1);
         return false;
     }
+    if (line.triggerInterval <= 0) {
+        *errorMessage = QStringLiteral("Invalid encoder trigger interval. line=%1 interval=%2")
+            .arg(line.lineIndex + 1).arg(line.triggerInterval);
+        return false;
+    }
+
+    auto cleanupEncoderFocus = [this]() {
+        QString ignored;
+        invokeFocus(m_topFocus, [this]() {
+            return m_topFocus->StopAcquisition() && m_topFocus->CloseAcquisitionEvent();
+        }, QStringLiteral("Cleanup top encoder acquisition"), &ignored);
+        invokeFocus(m_bottomFocus, [this]() {
+            return m_bottomFocus->StopAcquisition() && m_bottomFocus->CloseAcquisitionEvent();
+        }, QStringLiteral("Cleanup bottom encoder acquisition"), &ignored);
+    };
+
     if (!moveXy(line.startX, line.startY, m_settings.velocityNormal.toDouble(), errorMessage)) {
         return false;
     }
+
+    const int direction = 1;
+    if (!invokeFocus(m_topFocus, [this, line, direction]() {
+            return m_topFocus->StopAcquisition() &&
+                   m_topFocus->ClearDataStack() &&
+                   m_topFocus->InitAcquisitionEvent(COLOR_FOCUS_DEFAULT_BUFFER_LENGTH) &&
+                   m_topFocus->SetEncoderTriggerParam(line.triggerHead, line.triggerTail, line.triggerInterval, line.triggerAxis, direction) &&
+                   m_topFocus->StartAcquisition(TriggerEncoder, kSampleIntervalMs);
+        }, QStringLiteral("Prepare top encoder acquisition"), errorMessage) ||
+        !invokeFocus(m_bottomFocus, [this, line, direction]() {
+            return m_bottomFocus->StopAcquisition() &&
+                   m_bottomFocus->ClearDataStack() &&
+                   m_bottomFocus->InitAcquisitionEvent(COLOR_FOCUS_DEFAULT_BUFFER_LENGTH) &&
+                   m_bottomFocus->SetEncoderTriggerParam(line.triggerHead, line.triggerTail, line.triggerInterval, line.triggerAxis, direction) &&
+                   m_bottomFocus->StartAcquisition(TriggerEncoder, kSampleIntervalMs);
+        }, QStringLiteral("Prepare bottom encoder acquisition"), errorMessage)) {
+        cleanupEncoderFocus();
+        return false;
+    }
+
+    QThread::msleep(100);
+
     if (!invokeMotion([this, line]() {
             const double velocity = m_settings.velocityMeasure.toDouble();
             return m_motion.moveMultiAxisLinear(line.endX, line.endY, velocity, velocity * 10.0, velocity * 10.0);
         }, QStringLiteral("Scan line"), errorMessage)) {
+        cleanupEncoderFocus();
         return false;
     }
 
+    QVector<ProMeasurePoint> livePoints;
     QElapsedTimer timer;
     QElapsedTimer sampleTimer;
     timer.start();
@@ -1247,42 +1490,26 @@ bool MainWindow::scanOneLine(const ProPathLine &line, const ProRecipe &recipe, b
                              qAbs(position.x - line.endX) <= kPositionTolerance &&
                              qAbs(position.y - line.endY) <= kPositionTolerance &&
                              readyState(state.stateX) && readyState(state.stateY);
-        if (sampleTimer.elapsed() >= kSampleIntervalMs && points->size() < recipe.lineSampleNum) {
-            DistanceSnapshot snapshot = distanceSnapshot();
-            if (!snapshot.topValid || !snapshot.bottomValid) {
-                *errorMessage = QStringLiteral("Invalid color focus sample on line %1.").arg(line.lineIndex);
-                return false;
+        if (sampleTimer.elapsed() >= kSampleIntervalMs) {
+            const DistanceSnapshot snapshot = distanceSnapshot();
+            if (position.valid && snapshot.topValid && snapshot.bottomValid &&
+                qIsFinite(snapshot.top) && qIsFinite(snapshot.bottom)) {
+                ProMeasurePoint point;
+                point.lineIndex = line.lineIndex;
+                point.sampleIndex = livePoints.size();
+                point.x = position.x;
+                point.y = position.y;
+                point.z = position.z;
+                point.topDistance = snapshot.top;
+                point.bottomDistance = snapshot.bottom;
+                point.encoder = pointEncoderKey(recipe, point);
+                point.thickness = calibrationTotalForRecipe(recipe) - point.topDistance - point.bottomDistance;
+                point.zGravity = gravityMode ? (point.bottomDistance - point.topDistance) / 2.0 : 0.0;
+                point.hasZGravity = gravityMode;
+                livePoints.append(point);
+                const QVector<ProMeasurePoint> curvePoints = livePoints;
+                QMetaObject::invokeMethod(this, [this, curvePoints]() { updateCurve(curvePoints); }, Qt::QueuedConnection);
             }
-            if (!position.valid) {
-                *errorMessage = QStringLiteral("Motion position is invalid on line %1.").arg(line.lineIndex);
-                return false;
-            }
-            ProMeasurePoint point;
-            point.lineIndex = line.lineIndex;
-            point.sampleIndex = points->size();
-            point.x = position.x;
-            point.y = position.y;
-            point.z = position.z;
-            point.topDistance = snapshot.top;
-            point.bottomDistance = snapshot.bottom;
-            point.encoder = snapshot.encoder;
-            point.thickness = calibrationTotalForRecipe(recipe) - point.topDistance - point.bottomDistance;
-            if (gravityMode) {
-                point.zGravity = (point.bottomDistance - point.topDistance) / 2.0;
-                point.hasZGravity = true;
-            } else {
-                if (!gravityMap.contains(point.sampleIndex)) {
-                    *errorMessage = QStringLiteral("Missing gravity value. line=%1 sample=%2").arg(line.lineIndex).arg(point.sampleIndex);
-                    return false;
-                }
-                point.zGravity = gravityMap.value(point.sampleIndex);
-                point.hasZGravity = true;
-            }
-            if (!qIsFinite(point.thickness) || !qIsFinite(point.zGravity)) {
-                *errorMessage = QStringLiteral("Invalid computed value on line %1 sample %2.").arg(line.lineIndex).arg(point.sampleIndex);
-                return false;
-            }
-            points->append(point);
             sampleTimer.restart();
         }
         if (reached) {
@@ -1291,17 +1518,143 @@ bool MainWindow::scanOneLine(const ProPathLine &line, const ProRecipe &recipe, b
         QThread::msleep(10);
     }
     if (m_stopRequested) {
+        cleanupEncoderFocus();
         *errorMessage = QStringLiteral("Scan line canceled.");
         return false;
     }
-    if (points->size() < recipe.lineSampleNum) {
-        *errorMessage = QStringLiteral("Line %1 has insufficient points. expected=%2 actual=%3")
-            .arg(line.lineIndex).arg(recipe.lineSampleNum).arg(points->size());
+
+    Motion::AxisPosition finalPosition;
+    Motion::AxisStateSnapshot finalState;
+    {
+        QMutexLocker locker(&m_stateMutex);
+        finalPosition = m_position;
+        finalState = m_axisState;
+    }
+    if (!finalPosition.valid || !finalState.valid ||
+        qAbs(finalPosition.x - line.endX) > kPositionTolerance ||
+        qAbs(finalPosition.y - line.endY) > kPositionTolerance ||
+        !readyState(finalState.stateX) || !readyState(finalState.stateY)) {
+        cleanupEncoderFocus();
+        *errorMessage = QStringLiteral("Scan line did not reach end. %1").arg(motionSnapshotText(finalPosition, finalState));
         return false;
     }
+
+    QMap<INT32, _DISTANCE_VALUE> topMap;
+    QMap<INT32, _DISTANCE_VALUE> bottomMap;
+    QVector<int> topEncoders;
+    QVector<int> bottomEncoders;
+    if (!invokeFocus(m_topFocus, [this, line, &topMap, &topEncoders]() {
+            const bool readOk = m_topFocus->ReadDistanceBuffer(COLOR_FOCUS_DEFAULT_BUFFER_LENGTH, line.triggerAxis);
+            if (readOk) {
+                topMap = m_topFocus->distanceValueMap();
+                topEncoders = m_topFocus->encoders();
+            }
+            const bool stopOk = m_topFocus->StopAcquisition();
+            const bool closeOk = m_topFocus->CloseAcquisitionEvent();
+            return readOk && stopOk && closeOk;
+        }, QStringLiteral("Read top encoder buffer"), errorMessage) ||
+        !invokeFocus(m_bottomFocus, [this, line, &bottomMap, &bottomEncoders]() {
+            const bool readOk = m_bottomFocus->ReadDistanceBuffer(COLOR_FOCUS_DEFAULT_BUFFER_LENGTH, line.triggerAxis);
+            if (readOk) {
+                bottomMap = m_bottomFocus->distanceValueMap();
+                bottomEncoders = m_bottomFocus->encoders();
+            }
+            const bool stopOk = m_bottomFocus->StopAcquisition();
+            const bool closeOk = m_bottomFocus->CloseAcquisitionEvent();
+            return readOk && stopOk && closeOk;
+        }, QStringLiteral("Read bottom encoder buffer"), errorMessage)) {
+        cleanupEncoderFocus();
+        return false;
+    }
+
+    if (topMap.isEmpty() || bottomMap.isEmpty()) {
+        *errorMessage = QStringLiteral("Encoder buffer is empty. line=%1 top=%2 bottom=%3")
+            .arg(line.lineIndex + 1).arg(topMap.size()).arg(bottomMap.size());
+        return false;
+    }
+
+    std::sort(topEncoders.begin(), topEncoders.end());
+    std::sort(bottomEncoders.begin(), bottomEncoders.end());
+
+    auto appendPoint = [&](int encoder, const _DISTANCE_VALUE &topValue, const _DISTANCE_VALUE &bottomValue, double zGravity) {
+        if (topValue.distance < 0.0f || bottomValue.distance < 0.0f) {
+            return;
+        }
+        ProMeasurePoint point;
+        point.lineIndex = line.lineIndex;
+        point.sampleIndex = points->size();
+        point.x = changeToPositionValue(topValue.Encoder1);
+        point.y = changeToPositionValue(topValue.Encoder2);
+        point.z = finalPosition.valid ? finalPosition.z : 0.0;
+        point.topDistance = topValue.distance;
+        point.bottomDistance = bottomValue.distance;
+        point.encoder = encoder;
+        point.thickness = calibrationTotalForRecipe(recipe) - point.topDistance - point.bottomDistance;
+        point.zGravity = zGravity;
+        point.hasZGravity = true;
+        if (qIsFinite(point.thickness) && qIsFinite(point.zGravity)) {
+            points->append(point);
+        }
+    };
+
+    if (gravityMode) {
+        int offset = 0;
+        QVector<int> intersection = findEncoderIntersection(topEncoders, bottomEncoders, line.triggerInterval, &offset);
+        if (intersection.isEmpty()) {
+            *errorMessage = QStringLiteral("Top and bottom encoder data have no intersection. line=%1 interval=%2 top=%3 bottom=%4")
+                .arg(line.lineIndex + 1).arg(line.triggerInterval).arg(topEncoders.size()).arg(bottomEncoders.size());
+            return false;
+        }
+        for (int encoder : intersection) {
+            const int bottomEncoder = encoder - offset;
+            if (!topMap.contains(encoder) || !bottomMap.contains(bottomEncoder)) {
+                continue;
+            }
+            const _DISTANCE_VALUE topValue = topMap.value(encoder);
+            const _DISTANCE_VALUE bottomValue = bottomMap.value(bottomEncoder);
+            appendPoint(encoder, topValue, bottomValue, (bottomValue.distance - topValue.distance) / 2.0);
+        }
+    } else {
+        double centerX = 0.0;
+        double centerY = 0.0;
+        if (!centerForRecipe(recipe, m_settings, &centerX, &centerY, errorMessage)) {
+            return false;
+        }
+        Q_UNUSED(centerY);
+        QVector<int> gravityKeys = gravityMap.keys().toVector();
+        gravityKeys.removeOne(changeToEncoderValue(centerX));
+        std::sort(gravityKeys.begin(), gravityKeys.end());
+        int offsetTop = 0;
+        int offsetBottom = 0;
+        QVector<int> topAndGravity = findEncoderIntersection(gravityKeys, topEncoders, line.triggerInterval, &offsetTop);
+        QVector<int> bottomAndGravity = findEncoderIntersection(gravityKeys, bottomEncoders, line.triggerInterval, &offsetBottom);
+        int offset = 0;
+        QVector<int> intersection = findEncoderIntersection(topAndGravity, bottomAndGravity, line.triggerInterval, &offset);
+        Q_UNUSED(offset);
+        if (intersection.isEmpty()) {
+            *errorMessage = QStringLiteral("Measure encoder data and gravity data have no intersection. line=%1 interval=%2 gravity=%3 top=%4 bottom=%5")
+                .arg(line.lineIndex + 1).arg(line.triggerInterval).arg(gravityKeys.size()).arg(topEncoders.size()).arg(bottomEncoders.size());
+            return false;
+        }
+        for (int encoder : intersection) {
+            const int topEncoder = encoder - offsetTop;
+            const int bottomEncoder = encoder - offsetBottom;
+            if (!gravityMap.contains(encoder) || !topMap.contains(topEncoder) || !bottomMap.contains(bottomEncoder)) {
+                continue;
+            }
+            appendPoint(encoder, topMap.value(topEncoder), bottomMap.value(bottomEncoder), gravityMap.value(encoder));
+        }
+    }
+
+    if (points->isEmpty()) {
+        *errorMessage = QStringLiteral("Line %1 produced zero valid points after encoder alignment.").arg(line.lineIndex + 1);
+        return false;
+    }
+
+    const QVector<ProMeasurePoint> curvePoints = *points;
+    QMetaObject::invokeMethod(this, [this, curvePoints]() { updateCurve(curvePoints); }, Qt::QueuedConnection);
     return true;
 }
-
 bool MainWindow::sampleCenterPoint(const ProRecipe &recipe, ProMeasurePoint *point, QString *errorMessage)
 {
     double centerX = 0.0;
@@ -1352,7 +1705,7 @@ bool MainWindow::sampleCenterPoint(const ProRecipe &recipe, ProMeasurePoint *poi
     point->topDistance = topSum / double(sampleCount);
     point->bottomDistance = bottomSum / double(sampleCount);
     point->thickness = calibrationTotalForRecipe(recipe) - point->topDistance - point->bottomDistance;
-    point->encoder = qRound(centerX);
+    point->encoder = changeToEncoderValue(centerX);
     point->hasZGravity = false;
     return true;
 }
@@ -1455,15 +1808,66 @@ QString MainWindow::gravityDir(const ProRecipe &recipe) const
             .arg(recipe.productThickness));
 }
 
-bool MainWindow::saveGravityFiles(const ProRecipe &recipe, const ProRunResult &runResult, QString *errorMessage)
+bool MainWindow::saveGravityFiles(const ProRecipe &recipe, const ProRunResult &normalResult, const ProRunResult &oppositeResult, QString *errorMessage)
 {
     QDir dir(gravityDir(recipe));
     if (!dir.exists() && !dir.mkpath(QStringLiteral("."))) {
         *errorMessage = QStringLiteral("Create gravity directory failed: %1").arg(dir.absolutePath());
         return false;
     }
-    for (auto it = runResult.linePoints.constBegin(); it != runResult.linePoints.constEnd(); ++it) {
-        const QString path = dir.filePath(QStringLiteral("z_gravity_%1.zg").arg(it.key()));
+
+    double centerX = 0.0;
+    double centerY = 0.0;
+    if (!centerForRecipe(recipe, m_settings, &centerX, &centerY, errorMessage)) {
+        return false;
+    }
+    Q_UNUSED(centerY);
+    const int centerIndex = changeToEncoderValue(centerX);
+    for (int lineIndex = 0; lineIndex < recipe.measurePath; ++lineIndex) {
+        if (!normalResult.linePoints.contains(lineIndex) || !oppositeResult.linePoints.contains(lineIndex)) {
+            *errorMessage = QStringLiteral("Gravity scan line %1 is missing normal or opposite data.").arg(lineIndex + 1);
+            return false;
+        }
+
+        QMap<int, double> normalMap;
+        QMap<int, double> oppositeMap;
+        for (const ProMeasurePoint &point : normalResult.linePoints.value(lineIndex)) {
+            if (!point.hasZGravity || !qIsFinite(point.zGravity)) {
+                *errorMessage = QStringLiteral("Invalid normal gravity point. line=%1 sample=%2").arg(lineIndex + 1).arg(point.sampleIndex);
+                return false;
+            }
+            const int key = point.isCenter ? centerIndex : point.encoder;
+            normalMap.insert(key, point.zGravity);
+        }
+        for (const ProMeasurePoint &point : oppositeResult.linePoints.value(lineIndex)) {
+            if (!point.hasZGravity || !qIsFinite(point.zGravity)) {
+                *errorMessage = QStringLiteral("Invalid opposite gravity point. line=%1 sample=%2").arg(lineIndex + 1).arg(point.sampleIndex);
+                return false;
+            }
+            const int key = point.isCenter ? centerIndex : point.encoder;
+            oppositeMap.insert(key, point.zGravity);
+        }
+
+        if (!normalMap.contains(centerIndex) || !oppositeMap.contains(centerIndex)) {
+            *errorMessage = QStringLiteral("Center gravity point is missing for line %1.").arg(lineIndex + 1);
+            return false;
+        }
+        QVector<int> normalKeys = normalMap.keys().toVector();
+        QVector<int> oppositeKeys = oppositeMap.keys().toVector();
+        normalKeys.removeOne(centerIndex);
+        oppositeKeys.removeOne(centerIndex);
+        std::sort(normalKeys.begin(), normalKeys.end());
+        std::sort(oppositeKeys.begin(), oppositeKeys.end());
+
+        int offset = 0;
+        const int step = inferEncoderStep(normalKeys);
+        QVector<int> intersection = findEncoderIntersection(normalKeys, oppositeKeys, step, &offset);
+        if (intersection.isEmpty()) {
+            *errorMessage = QStringLiteral("Normal and opposite gravity data have no encoder intersection. line=%1").arg(lineIndex + 1);
+            return false;
+        }
+
+        const QString path = dir.filePath(QStringLiteral("z_gravity_%1.zg").arg(lineIndex));
         QFile file(path);
         if (!file.open(QIODevice::WriteOnly)) {
             *errorMessage = QStringLiteral("Open gravity file failed: %1, %2").arg(path, file.errorString());
@@ -1471,16 +1875,30 @@ bool MainWindow::saveGravityFiles(const ProRecipe &recipe, const ProRunResult &r
         }
         QDataStream out(&file);
         out.setVersion(QDataStream::Qt_5_15);
-        for (const ProMeasurePoint &point : it.value()) {
-            if (!point.hasZGravity || !qIsFinite(point.zGravity)) {
-                *errorMessage = QStringLiteral("Invalid gravity point. line=%1 sample=%2").arg(it.key()).arg(point.sampleIndex);
+        for (int index : intersection) {
+            const int oppositeIndex = index - offset;
+            if (!oppositeMap.contains(oppositeIndex)) {
+                *errorMessage = QStringLiteral("Opposite gravity index is missing. line=%1 index=%2 offset=%3")
+                    .arg(lineIndex + 1).arg(index).arg(offset);
                 return false;
             }
+            const double z1 = normalMap.value(index);
+            const double z2 = oppositeMap.value(oppositeIndex);
+            const double zm = (z1 - z2) / 2.0;
+            const double zGravity = z1 - zm;
             QStringList fields;
-            fields << QString::number(point.zGravity, 'g', 15)
-                   << QString::number(point.sampleIndex);
+            fields << QString::number(zGravity, 'g', 15)
+                   << QString::number(index);
             out << fields;
         }
+
+        const double centerZ1 = normalMap.value(centerIndex);
+        const double centerZ2 = oppositeMap.value(centerIndex);
+        const double centerGravity = centerZ1 - ((centerZ1 - centerZ2) / 2.0);
+        QStringList centerFields;
+        centerFields << QString::number(centerGravity, 'g', 15)
+                     << QString::number(centerIndex);
+        out << centerFields;
     }
     return true;
 }
@@ -1520,8 +1938,8 @@ bool MainWindow::loadGravityFiles(const ProRecipe &recipe, QMap<int, QMap<int, d
             }
             lineMap.insert(index, value);
         }
-        if (lineMap.size() < recipe.lineSampleNum) {
-            *errorMessage = QStringLiteral("Gravity file has insufficient points: %1").arg(path);
+        if (lineMap.isEmpty()) {
+            *errorMessage = QStringLiteral("Gravity file has no valid points: %1").arg(path);
             return false;
         }
         gravity->insert(lineIndex, lineMap);
@@ -1663,28 +2081,33 @@ void MainWindow::finishRunOnUi(const ProRunResult &runResult, const QString &mes
 
 void MainWindow::updateCurve(const QVector<ProMeasurePoint> &linePoints)
 {
-    QChart *chart = m_curveView->chart();
-    chart->removeAllSeries();
-    QLineSeries *series = new QLineSeries(chart);
+    if (!m_curveSeries || !m_curveAxisX || !m_curveAxisY) {
+        return;
+    }
+    m_curveSeries->clear();
     for (const ProMeasurePoint &point : linePoints) {
-        series->append(point.sampleIndex, point.thickness);
+        m_curveSeries->append(point.sampleIndex, point.thickness);
     }
-    chart->addSeries(series);
-    QValueAxis *axisX = new QValueAxis;
-    QValueAxis *axisY = new QValueAxis;
-    axisX->setTitleText(QStringLiteral("Sample"));
-    axisY->setTitleText(QStringLiteral("THK"));
-    chart->addAxis(axisX, Qt::AlignBottom);
-    chart->addAxis(axisY, Qt::AlignLeft);
-    series->attachAxis(axisX);
-    series->attachAxis(axisY);
-    if (!linePoints.isEmpty()) {
-        axisX->setRange(0, qMax(1, linePoints.last().sampleIndex));
-        auto mm = std::minmax_element(linePoints.constBegin(), linePoints.constEnd(), [](const ProMeasurePoint &a, const ProMeasurePoint &b) {
-            return a.thickness < b.thickness;
-        });
-        axisY->setRange(mm.first->thickness - 1.0, mm.second->thickness + 1.0);
+    if (linePoints.isEmpty()) {
+        m_curveAxisX->setRange(0, 1);
+        m_curveAxisY->setRange(0, 1);
+        return;
     }
+    m_curveAxisX->setRange(0, qMax(1, linePoints.last().sampleIndex));
+    auto mm = std::minmax_element(linePoints.constBegin(), linePoints.constEnd(), [](const ProMeasurePoint &a, const ProMeasurePoint &b) {
+        return a.thickness < b.thickness;
+    });
+    double minY = mm.first->thickness;
+    double maxY = mm.second->thickness;
+    if (qFuzzyCompare(minY, maxY)) {
+        minY -= 1.0;
+        maxY += 1.0;
+    } else {
+        const double margin = qMax(0.1, (maxY - minY) * 0.1);
+        minY -= margin;
+        maxY += margin;
+    }
+    m_curveAxisY->setRange(minY, maxY);
 }
 
 void MainWindow::updateHeatMap(const ProRunResult &runResult)

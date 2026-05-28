@@ -24,6 +24,10 @@ QT_END_NAMESPACE
 class QAbstract3DSeries;
 class QCloseEvent;
 class QThread;
+namespace QtCharts {
+class QLineSeries;
+class QValueAxis;
+}
 
 class MainWindow : public QMainWindow
 {
@@ -92,6 +96,7 @@ private:
     bool invokeMotion(const std::function<bool()> &call, const QString &action, QString *errorMessage);
     bool invokeFocus(ColorFocusControl *control, const std::function<bool()> &call, const QString &action, QString *errorMessage);
     bool initializeDevices(QString *errorMessage);
+    bool startContinuousFocusSamples(QString *errorMessage);
     bool moveLoadPosition(QString *errorMessage);
     bool moveXy(double x, double y, double velocity, QString *errorMessage);
     bool moveZ(double z, QString *errorMessage);
@@ -107,7 +112,7 @@ private:
     double calibrationTotalForRecipe(const ProRecipe &recipe) const;
     Wafer::WaferDataset buildDataset(const ProRecipe &recipe, const ProRunResult &runResult) const;
     Wafer::AlgorithmOptions algorithmOptions(const ProRecipe &recipe) const;
-    bool saveGravityFiles(const ProRecipe &recipe, const ProRunResult &runResult, QString *errorMessage);
+    bool saveGravityFiles(const ProRecipe &recipe, const ProRunResult &normalResult, const ProRunResult &oppositeResult, QString *errorMessage);
     bool loadGravityFiles(const ProRecipe &recipe, QMap<int, QMap<int, double>> *gravity, QString *errorMessage) const;
     QString gravityDir(const ProRecipe &recipe) const;
     bool writeResultFiles(ProRunResult *runResult, QString *errorMessage);
@@ -153,6 +158,9 @@ private:
     int m_lastEncoder;
     QVector<double> m_calibrationFilter;
     QtCharts::QChartView *m_curveView;
+    QtCharts::QLineSeries *m_curveSeries;
+    QtCharts::QValueAxis *m_curveAxisX;
+    QtCharts::QValueAxis *m_curveAxisY;
     QtCharts::QChartView *m_heatLegendView;
     QtDataVisualization::Q3DSurface *m_surface;
     QWidget *m_surfaceContainer;

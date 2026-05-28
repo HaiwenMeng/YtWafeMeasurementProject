@@ -212,12 +212,6 @@ bool ColorFocusControl::ReadDistanceBuffer(int readNum, int triggerAxis)
         reportLog(m_lastErrorMessage);
         return false;
     }
-    if (WaitForSingleObject(m_endAcqEvent, 0) != WAIT_OBJECT_0) {
-        m_lastErrorMessage = "ReadDistanceBuffer failed. acquisition event is not triggered";
-        emit errorOccurred(m_sensorId, m_lastErrorMessage);
-        reportLog(m_lastErrorMessage);
-        return false;
-    }
     if (readNum <= 0) {
         m_lastErrorMessage = QString("ReadDistanceBuffer failed. invalid read num %1").arg(readNum);
         emit errorOccurred(m_sensorId, m_lastErrorMessage);
@@ -225,13 +219,24 @@ bool ColorFocusControl::ReadDistanceBuffer(int readNum, int triggerAxis)
         return false;
     }
 
-    QVector<_DISTANCE_VALUE> values(readNum);
+    QVector<float> distances(readNum);
+    QVector<float> intensities(readNum);
+    QVector<INT32> encoder1(readNum);
+    QVector<INT32> encoder2(readNum);
+    QVector<INT32> encoder3(readNum);
     UINT actualCount = 0;
-    if (!CCS_GetDistanceData(m_sensorId, values.data(), static_cast<UINT>(readNum), &actualCount)) {
-        return reportSdkFailure("CCS_GetDistanceData");
+    if (!CCS_GetDistanceArray(m_sensorId,
+                              distances.data(),
+                              intensities.data(),
+                              encoder1.data(),
+                              encoder2.data(),
+                              encoder3.data(),
+                              static_cast<UINT>(readNum),
+                              &actualCount)) {
+        return reportSdkFailure("CCS_GetDistanceArray");
     }
     if (actualCount == 0) {
-        m_lastErrorMessage = "CCS_GetDistanceData returned zero points";
+        m_lastErrorMessage = "CCS_GetDistanceArray returned zero points";
         emit errorOccurred(m_sensorId, m_lastErrorMessage);
         reportLog(m_lastErrorMessage);
         return false;
@@ -241,7 +246,12 @@ bool ColorFocusControl::ReadDistanceBuffer(int readNum, int triggerAxis)
     m_distanceValueMap.clear();
     m_encoders.clear();
     for (UINT i = 0; i < actualCount; ++i) {
-        const _DISTANCE_VALUE value = values.at(static_cast<int>(i));
+        _DISTANCE_VALUE value;
+        value.distance = distances.at(static_cast<int>(i));
+        value.intensity = intensities.at(static_cast<int>(i));
+        value.Encoder1 = encoder1.at(static_cast<int>(i));
+        value.Encoder2 = encoder2.at(static_cast<int>(i));
+        value.Encoder3 = encoder3.at(static_cast<int>(i));
         const INT32 encoder = triggerAxis == 1 ? value.Encoder2 : (triggerAxis == 2 ? value.Encoder3 : value.Encoder1);
         m_distanceValues.append(value);
         m_distanceValueMap.insert(encoder, value);
