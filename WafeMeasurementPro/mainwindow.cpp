@@ -47,6 +47,10 @@ constexpr double kPositionTolerance = 0.01;
 constexpr double kCalibrationScanOffset = 3.0;
 constexpr double kCalibrationScanVelocity = 2.0;
 constexpr double kCalibrationScanAcc = 40.0;
+constexpr double kTwCircleCenterX = 122.25;
+constexpr double kTwCircleCenterY = 143.97;
+constexpr double kNjCircleCenterX = 142.322;
+constexpr double kNjCircleCenterY = 151.896;
 
 bool readyState(int state)
 {
@@ -65,31 +69,20 @@ bool validFinite(double value)
 
 bool centerForRecipe(const ProRecipe &recipe, const ParamSettings &settings, double *centerX, double *centerY, QString *errorMessage)
 {
-    QString xText;
-    QString yText;
-    if (recipe.productSize == 12) {
-        xText = settings.posWaitX_12;
-        yText = settings.posWaitY_12;
-    } else if (recipe.productSize == 6) {
-        xText = settings.posWaitX_6;
-        yText = settings.posWaitY_6;
+    Q_UNUSED(recipe);
+    if (settings.IsUseStandard1550Flag.toInt() == 1) {
+        *centerX = kTwCircleCenterX;
+        *centerY = kTwCircleCenterY;
     } else {
-        xText = settings.posWaitX_8;
-        yText = settings.posWaitY_8;
+        *centerX = kNjCircleCenterX;
+        *centerY = kNjCircleCenterY;
     }
-
-    bool okX = false;
-    bool okY = false;
-    const double x = xText.toDouble(&okX);
-    const double y = yText.toDouble(&okY);
-    if (!okX || !okY || !qIsFinite(x) || !qIsFinite(y)) {
+    if (!qIsFinite(*centerX) || !qIsFinite(*centerY)) {
         if (errorMessage) {
-            *errorMessage = QStringLiteral("Wait position is invalid for product size %1.").arg(recipe.productSize);
+            *errorMessage = QStringLiteral("Circle center is invalid.");
         }
         return false;
     }
-    *centerX = x;
-    *centerY = y;
     return true;
 }
 
