@@ -151,8 +151,8 @@ void MainWindow::setupTables()
 {
     ui->table_results->setColumnCount(2);
     ui->table_results->setHorizontalHeaderLabels(QStringList()
-        << QString::fromUtf8("\351\241\271\347\233\256")
-        << QString::fromUtf8("\347\273\223\346\236\234"));
+        << QString(u8"项目")
+        << QString(u8"结果"));
     ui->table_results->verticalHeader()->setVisible(false);
     ui->table_results->horizontalHeader()->setStretchLastSection(true);
     ui->table_results->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -168,9 +168,9 @@ void MainWindow::setupTables()
 
     ui->table_calibration->setColumnCount(3);
     ui->table_calibration->setHorizontalHeaderLabels(QStringList()
-        << QString::fromUtf8("\346\240\207\345\207\206\347\211\207")
-        << QString::fromUtf8("\346\240\207\345\207\206\345\216\232\345\272\246")
-        << QString::fromUtf8("\346\240\241\345\207\206\346\200\273\345\200\274"));
+        << QString(u8"标准片")
+        << QString(u8"标准厚度")
+        << QString(u8"校准总值"));
     ui->table_calibration->verticalHeader()->setVisible(false);
     ui->table_calibration->horizontalHeader()->setStretchLastSection(true);
     ui->table_calibration->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -181,7 +181,7 @@ void MainWindow::setupCharts()
 {
     QChart *curveChart = new QChart;
     curveChart->legend()->setVisible(false);
-    curveChart->setTitle(QString::fromUtf8("\345\275\223\345\211\215\347\272\277\345\216\232\345\272\246\346\233\262\347\272\277"));
+    curveChart->setTitle(QString(u8"当前线厚度曲线"));
     m_curveView = new QChartView(curveChart, ui->widget_curve);
     m_curveView->setRenderHint(QPainter::Antialiasing);
     QVBoxLayout *curveLayout = new QVBoxLayout(ui->widget_curve);
@@ -358,7 +358,7 @@ void MainWindow::appendLog(const QString &message)
 void MainWindow::showError(const QString &message)
 {
     appendLog(message);
-    QMessageBox::warning(this, QString::fromUtf8("\351\224\231\350\257\257"), message);
+    QMessageBox::warning(this, QString(u8"错误"), message);
 }
 
 void MainWindow::updateRecipeLabels()
@@ -418,7 +418,7 @@ void MainWindow::onInitializeClicked()
         showError(error);
         return;
     }
-    setBusy(true, QString::fromUtf8("\346\255\243\345\234\250\345\210\235\345\247\213\345\214\226"));
+    setBusy(true, QString(u8"正在初始化"));
     m_stopRequested = false;
     if (!initializeDevices(&error)) {
         m_initialized = false;
@@ -428,7 +428,7 @@ void MainWindow::onInitializeClicked()
     }
     m_initialized = true;
     setBusy(false, QStringLiteral("Ready"));
-    appendLog(QString::fromUtf8("\345\210\235\345\247\213\345\214\226\345\256\214\346\210\220"));
+    appendLog(QString(u8"初始化完成"));
 }
 
 void MainWindow::onRecipeManagerClicked()
@@ -453,7 +453,7 @@ void MainWindow::onParameterSettingsClicked()
     connect(&dialog, &ParameterSettingsDialog::settingsSaved, this, [this](const ParamSettings &settings) {
         m_settings = settings;
         updateCalibrationTable(m_settings);
-        appendLog(QString::fromUtf8("\345\217\202\346\225\260\345\267\262\344\277\235\345\255\230"));
+        appendLog(QString(u8"参数已保存"));
     });
     dialog.exec();
 }
@@ -470,7 +470,7 @@ void MainWindow::onEmergencyStopClicked()
     invokeFocus(m_bottomFocus, [this]() { return m_bottomFocus->StopAcquisition(); }, QStringLiteral("Stop bottom acquisition"), &ignored);
     m_initialized = false;
     setBusy(false, QStringLiteral("Ready"));
-    appendLog(QString::fromUtf8("\346\200\245\345\201\234\345\267\262\350\247\246\345\217\221"));
+    appendLog(QString(u8"急停已触发"));
 }
 
 void MainWindow::onRecipeChanged(int)
@@ -488,7 +488,7 @@ void MainWindow::onCalibrationClicked()
         return;
     }
     ParamSettings settings = m_settings;
-    setBusy(true, QString::fromUtf8("\346\240\241\345\207\206\344\270\255"));
+    setBusy(true, QString(u8"校准中"));
     m_stopRequested = false;
     m_future = QtConcurrent::run([this, settings]() mutable {
         QString error;
@@ -501,7 +501,7 @@ void MainWindow::onCalibrationClicked()
             if (ok) {
                 m_settings = settings;
                 updateCalibrationTable(m_settings);
-                appendLog(QString::fromUtf8("\346\240\241\345\207\206\345\256\214\346\210\220"));
+                appendLog(QString(u8"校准完成"));
             } else {
                 showError(error);
             }
@@ -520,7 +520,7 @@ void MainWindow::onScanGravityClicked()
         return;
     }
     const ProRecipe recipe = currentRecipe();
-    setBusy(true, QString::fromUtf8("\346\211\253\346\217\217\351\207\215\345\212\233\350\241\245\345\201\277"));
+    setBusy(true, QString(u8"扫描重力补偿"));
     m_stopRequested = false;
     m_future = QtConcurrent::run([this, recipe]() {
         ProRunResult result;
@@ -539,7 +539,7 @@ void MainWindow::onScanGravityClicked()
                 updateCurve(result.linePoints.isEmpty() ? QVector<ProMeasurePoint>() : result.linePoints.last());
                 updateHeatMap(result);
                 updateSurface(result);
-                appendLog(QString::fromUtf8("\351\207\215\345\212\233\350\241\245\345\201\277\346\226\207\344\273\266\345\267\262\347\224\237\346\210\220"));
+                appendLog(QString(u8"重力补偿文件已生成"));
             } else {
                 showError(error);
             }
@@ -557,7 +557,7 @@ void MainWindow::onLoadClicked()
     if (m_busy) {
         return;
     }
-    setBusy(true, QString::fromUtf8("\347\247\273\345\212\250\345\210\260\344\270\212\344\270\213\346\226\231\344\275\215"));
+    setBusy(true, QString(u8"移动到上下料位"));
     m_future = QtConcurrent::run([this]() {
         QString error;
         const bool ok = moveLoadPosition(&error);
@@ -565,7 +565,7 @@ void MainWindow::onLoadClicked()
             if (!ok) {
                 showError(error);
             } else {
-                appendLog(QString::fromUtf8("\345\267\262\345\210\260\350\276\276\344\270\212\344\270\213\346\226\231\344\275\215"));
+                appendLog(QString(u8"已到达上下料位"));
             }
             setBusy(false, QStringLiteral("Ready"));
         }, Qt::QueuedConnection);
@@ -588,7 +588,7 @@ void MainWindow::onMeasureClicked()
         showError(error);
         return;
     }
-    setBusy(true, QString::fromUtf8("\346\265\213\351\207\217\344\270\255"));
+    setBusy(true, QString(u8"测量中"));
     m_stopRequested = false;
     m_future = QtConcurrent::run([this, recipe]() {
         ProRunResult result;
@@ -615,7 +615,7 @@ void MainWindow::onMeasureClicked()
         result.errorMessage = error;
         QMetaObject::invokeMethod(this, [this, result]() {
             if (result.success) {
-                finishRunOnUi(result, QString::fromUtf8("\346\265\213\351\207\217\345\256\214\346\210\220"));
+                finishRunOnUi(result, QString(u8"测量完成"));
             } else {
                 showError(result.errorMessage);
             }
@@ -631,7 +631,7 @@ void MainWindow::onStopClicked()
     if (!invokeMotion([this]() { return m_motion.abortAxes(); }, QStringLiteral("Stop motion"), &error)) {
         appendLog(error);
     }
-    appendLog(QString::fromUtf8("\345\201\234\346\255\242\350\257\267\346\261\202\345\267\262\345\217\221\345\207\272"));
+    appendLog(QString(u8"停止请求已发出"));
 }
 
 void MainWindow::onMotionConnected(bool connected)

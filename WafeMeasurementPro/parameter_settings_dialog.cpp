@@ -192,5 +192,5 @@ bool ParameterSettingsDialog::isIntText(const QString &text) const
 
 void ParameterSettingsDialog::showError(const QString &message)
 {
-    QMessageBox::warning(this, QString::fromUtf8("\345\217\202\346\225\260\350\256\276\347\275\256"), message);
+    QMessageBox::warning(this, QString(u8"≤Œ ˝…Ë÷√"), message);
 }

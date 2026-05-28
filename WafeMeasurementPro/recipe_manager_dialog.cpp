@@ -13,12 +13,12 @@ RecipeManagerDialog::RecipeManagerDialog(RecipeDatabase *database, QWidget *pare
     ui->setupUi(this);
     ui->table_recipes->setColumnCount(6);
     ui->table_recipes->setHorizontalHeaderLabels(QStringList()
-        << QString::fromUtf8("\347\250\213\345\274\217")
-        << QString::fromUtf8("\350\267\257\345\276\204")
-        << QString::fromUtf8("\345\216\232\345\272\246")
-        << QString::fromUtf8("\345\260\272\345\257\270")
-        << QString::fromUtf8("\350\243\201\350\276\271")
-        << QString::fromUtf8("\347\202\271\346\225\260"));
+        << QString(u8"程序")
+        << QString(u8"路径")
+        << QString(u8"厚度")
+        << QString(u8"尺寸")
+        << QString(u8"裁边")
+        << QString(u8"点数"));
     ui->table_recipes->setSelectionBehavior(QAbstractItemView::SelectRows);
     ui->table_recipes->setSelectionMode(QAbstractItemView::SingleSelection);
     ui->table_recipes->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -81,8 +81,8 @@ void RecipeManagerDialog::onDeleteClicked()
         showError(QStringLiteral("No recipe row is selected."));
         return;
     }
-    if (QMessageBox::question(this, QString::fromUtf8("\347\241\256\350\256\244\345\210\240\351\231\244"),
-                              QString::fromUtf8("\347\241\256\345\256\232\345\210\240\351\231\244\345\275\223\345\211\215\351\205\215\346\226\271\345\220\227?")) != QMessageBox::Yes) {
+    if (QMessageBox::question(this, QString(u8"确认删除"),
+                              QString(u8"确定删除当前配方吗?")) != QMessageBox::Yes) {
         return;
     }
     QString error;
@@ -204,5 +204,5 @@ int RecipeManagerDialog::currentRecipeId() const
 
 void RecipeManagerDialog::showError(const QString &message)
 {
-    QMessageBox::warning(this, QString::fromUtf8("\351\205\215\346\226\271\347\256\241\347\220\206"), message);
+    QMessageBox::warning(this, QString(u8"配方管理"), message);
 }
