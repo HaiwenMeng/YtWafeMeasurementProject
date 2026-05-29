@@ -105,11 +105,18 @@ bool XmlConfigManager::loadFromXml(ParamSettings *settings, QString *errorMessag
     settings->CalibrationDirectionOfX = readText(calibration, QStringLiteral("CalibrationDirectionOfX"));
     settings->IsNewWarpAlg = readText(calibration, QStringLiteral("IsNewWarpAlg"));
     settings->IsNewBowAlg = readText(calibration, QStringLiteral("IsNewBowAlg"));
+    settings->IsSaveZM = readText(calibration, QStringLiteral("IsSaveZM"));
+    settings->IsSave3D = readText(calibration, QStringLiteral("IsSave3D"));
     settings->IsUseWID = readText(calibration, QStringLiteral("IsUseWID"));
     settings->LineSampleNum = readText(calibration, QStringLiteral("LineSampleNum"));
     settings->IsUseStandard1550Flag = readText(calibration, QStringLiteral("IsUseStandard1550Flag"));
     settings->ChordLength = readText(calibration, QStringLiteral("ChordLength"));
     return true;
+}
+
+bool XmlConfigManager::loadFromXml(ParamSettings &settings) const
+{
+    return loadFromXml(&settings, nullptr);
 }
 
 bool XmlConfigManager::saveToXml(const ParamSettings &settings, QString *errorMessage) const
@@ -177,6 +184,8 @@ bool XmlConfigManager::saveToXml(const ParamSettings &settings, QString *errorMe
     calibration.appendChild(createTextElement(&doc, QStringLiteral("CalibrationDirectionOfX"), settings.CalibrationDirectionOfX));
     calibration.appendChild(createTextElement(&doc, QStringLiteral("IsNewWarpAlg"), settings.IsNewWarpAlg));
     calibration.appendChild(createTextElement(&doc, QStringLiteral("IsNewBowAlg"), settings.IsNewBowAlg));
+    calibration.appendChild(createTextElement(&doc, QStringLiteral("IsSaveZM"), settings.IsSaveZM));
+    calibration.appendChild(createTextElement(&doc, QStringLiteral("IsSave3D"), settings.IsSave3D));
     calibration.appendChild(createTextElement(&doc, QStringLiteral("IsUseWID"), settings.IsUseWID));
     calibration.appendChild(createTextElement(&doc, QStringLiteral("LineSampleNum"), settings.LineSampleNum));
     calibration.appendChild(createTextElement(&doc, QStringLiteral("IsUseStandard1550Flag"), settings.IsUseStandard1550Flag));

@@ -13,6 +13,7 @@ public:
 
     QString configPath() const;
     bool loadFromXml(ParamSettings *settings, QString *errorMessage = nullptr) const;
+    bool loadFromXml(ParamSettings &settings) const;
     bool saveToXml(const ParamSettings &settings, QString *errorMessage = nullptr) const;
 
 private:

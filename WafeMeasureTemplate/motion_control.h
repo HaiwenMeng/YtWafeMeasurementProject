@@ -1,0 +1,7 @@
+#ifndef WAFEMEASURETEMPLATE_MOTION_CONTROL_H
+#define WAFEMEASURETEMPLATE_MOTION_CONTROL_H
+
+#include "data_define.h"
+#include "MotionController.h"
+
+#endif // WAFEMEASURETEMPLATE_MOTION_CONTROL_H

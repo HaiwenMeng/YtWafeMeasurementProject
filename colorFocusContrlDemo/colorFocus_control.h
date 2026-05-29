@@ -15,14 +15,20 @@
 #include "DLL_CCS.h"
 
 #define COLOR_FOCUS_DEFAULT_BUFFER_LENGTH 50000
+#define SENSOR_ID1 1
+#define SENSOR_ID2 2
+#define BUFFER_LENGTH COLOR_FOCUS_DEFAULT_BUFFER_LENGTH
 
 enum TriggerMode
 {
+    Continue = 0,
     TriggerContinue = 0,
+    Burst = 4,
     TriggerStartByEdge = 1,
     TriggerStartStopByState = 2,
     TriggerStartStopByEdge = 3,
     TriggerBurst = 4,
+    Encoder = 5,
     TriggerEncoder = 5
 };
 
@@ -45,10 +51,15 @@ public:
 
     Q_INVOKABLE bool StartAcquisition(int triggerMode, int pollIntervalMs = 100);
     Q_INVOKABLE bool StopAcquisition();
+    bool StartAcquisition(TriggerMode triggerMode) { return StartAcquisition(static_cast<int>(triggerMode)); }
+    bool StartAcquisition_CCS(TriggerMode triggerMode) { return StartAcquisition(triggerMode); }
+    bool StopAcquisition_CCS() { return StopAcquisition(); }
     Q_INVOKABLE bool ClearDataStack();
     Q_INVOKABLE bool InitAcquisitionEvent(int bufferLength);
     Q_INVOKABLE bool ReadDistanceBuffer(int readNum, int triggerAxis = 0);
     Q_INVOKABLE bool CloseAcquisitionEvent();
+    bool CloseAcquisitionEvent(int bufferLength, int triggerAxis = 0);
+    bool ChangeTriggerMode(TriggerMode mode);
 
     Q_INVOKABLE bool ApplyBasicParameters(int measureMode,
                                           int scanRate,
@@ -76,6 +87,8 @@ public:
     Q_INVOKABLE bool SetLightState(bool enabled);
     Q_INVOKABLE bool SetLightMode(int value);
     Q_INVOKABLE bool SetEncoderTriggerParam(int head, int tail, int interval, int encoderSelect, int direction);
+    bool SetEcdTrgParam(INT32 head, INT32 tail, INT32 interval, BYTE encoderSelect);
+    bool GetEcdTrgParam(PINT32 head, PINT32 tail, PINT32 interval, PBYTE encoderSelect, PBYTE direction);
     Q_INVOKABLE bool SetDAParam(float signalLowerLimit,
                                 float signalUpperLimit,
                                 float voltageLowerLimit,
@@ -87,6 +100,9 @@ public:
     Q_INVOKABLE bool RecenterEncoder2();
     Q_INVOKABLE bool RecenterEncoder3();
     Q_INVOKABLE bool RecenterAllEncoders();
+    bool RecenterEncoder() { return RecenterAllEncoders(); }
+    bool XRecenterEncoder() { return RecenterEncoder1(); }
+    bool YRecenterEncoder() { return RecenterEncoder2(); }
     Q_INVOKABLE bool ParamSave();
     Q_INVOKABLE bool ParamDefault();
     Q_INVOKABLE bool StartSpectrum();
@@ -127,18 +143,32 @@ public:
     bool GetHardwareVersion(DWORD *value);
 
     double GetCurrentDistance();
+    INT32 ChangeToEncoderValue(float position) const;
+    float ChangeToPositionValue(INT32 encoder) const;
     const QList<_DISTANCE_VALUE> &distanceValues() const;
     const QMap<INT32, _DISTANCE_VALUE> &distanceValueMap() const;
     const QVector<int> &encoders() const;
+    QMap<INT32, _DISTANCE_VALUE>& GetMeasurePointDistanceMap() { return m_distanceValueMap; }
+    QList<_DISTANCE_VALUE>& GetMeasurePointDistanceList() { return m_distanceValues; }
+    QVector<int>& GetEncoders() { return m_encoders; }
+    void ClearMeasureData();
+    void SetSensoId(UINT16 sensorId) { SetSensorId(sensorId); }
+    void SetMeasureState(bool isMeasuring) { m_isMeasuring = isMeasuring; }
+    bool getConnectFailState() const { return m_connectFailed; }
 
 signals:
     void sampleUpdated(int sensorId, float distance, float intensity, int encoder1, int encoder2, int encoder3);
+    void s_colorFocusUpdated(UINT16 sensorId, float distance, float intensity);
     void spectrumUpdated(int sensorId, QVector<quint16> spectrum);
     void bufferedDataUpdated(int sensorId, int count);
     void connectionStateChanged(int sensorId, bool connected);
+    void s_connectionStateChanged(UINT16 sensorId, bool connected);
     void acquisitionStateChanged(int sensorId, bool acquiring);
     void errorOccurred(int sensorId, QString errorMessage);
+    void s_sendErrorMsg(int sensorId, QString errorMessage);
     void logMessage(QString message);
+    void s_writeLog(QString message);
+    void connectionTimeout();
 
 private slots:
     void PollCurrentSample();
@@ -160,6 +190,8 @@ private:
     HANDLE m_endAcqEvent;
     int m_pollIntervalMs;
     int m_currentTriggerMode;
+    bool m_connectFailed = false;
+    bool m_isMeasuring = false;
 
     QList<_DISTANCE_VALUE> m_distanceValues;
     QMap<INT32, _DISTANCE_VALUE> m_distanceValueMap;

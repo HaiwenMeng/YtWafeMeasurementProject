@@ -26,12 +26,14 @@ void ColorFocusControl::SetSensorId(int sensorId)
     if (m_connected) {
         m_lastErrorMessage = QString("SetSensorId failed. sensor=%1 is connected").arg(m_sensorId);
         emit errorOccurred(m_sensorId, m_lastErrorMessage);
+        emit s_sendErrorMsg(m_sensorId, m_lastErrorMessage);
         reportLog(m_lastErrorMessage);
         return;
     }
     if (sensorId < 0 || sensorId >= CCS_MAX_SENSOR) {
         m_lastErrorMessage = QString("Invalid sensor id %1").arg(sensorId);
         emit errorOccurred(m_sensorId, m_lastErrorMessage);
+        emit s_sendErrorMsg(m_sensorId, m_lastErrorMessage);
         reportLog(m_lastErrorMessage);
         return;
     }
@@ -63,6 +65,7 @@ bool ColorFocusControl::ConnectDevice(const QString &ipAddress)
     if (m_connected) {
         reportLog(QString("Sensor %1 is already connected").arg(m_sensorId));
         emit connectionStateChanged(m_sensorId, true);
+        emit s_connectionStateChanged(m_sensorId, true);
         return true;
     }
 
@@ -70,7 +73,9 @@ bool ColorFocusControl::ConnectDevice(const QString &ipAddress)
     if (ipBytes.isEmpty()) {
         m_lastErrorMessage = QString("ConnectDevice failed. sensor=%1 empty ip").arg(m_sensorId);
         emit errorOccurred(m_sensorId, m_lastErrorMessage);
+        emit s_sendErrorMsg(m_sensorId, m_lastErrorMessage);
         reportLog(m_lastErrorMessage);
+        m_connectFailed = true;
         return false;
     }
 
@@ -79,8 +84,10 @@ bool ColorFocusControl::ConnectDevice(const QString &ipAddress)
     }
 
     m_connected = true;
+    m_connectFailed = false;
     m_lastErrorMessage.clear();
     emit connectionStateChanged(m_sensorId, true);
+    emit s_connectionStateChanged(m_sensorId, true);
     reportLog(QString("Sensor %1 connected to %2").arg(m_sensorId).arg(QString::fromLatin1(ipBytes)));
     return true;
 }
@@ -101,6 +108,7 @@ bool ColorFocusControl::DisconnectDevice()
         }
         m_connected = false;
         emit connectionStateChanged(m_sensorId, false);
+        emit s_connectionStateChanged(m_sensorId, false);
     }
     return ok;
 }
@@ -180,6 +188,7 @@ bool ColorFocusControl::InitAcquisitionEvent(int bufferLength)
     if (bufferLength <= 0) {
         m_lastErrorMessage = QString("InitAcquisitionEvent failed. invalid buffer length %1").arg(bufferLength);
         emit errorOccurred(m_sensorId, m_lastErrorMessage);
+        emit s_sendErrorMsg(m_sensorId, m_lastErrorMessage);
         reportLog(m_lastErrorMessage);
         return false;
     }
@@ -189,6 +198,7 @@ bool ColorFocusControl::InitAcquisitionEvent(int bufferLength)
     if (!m_endAcqEvent) {
         m_lastErrorMessage = QString("CreateEvent failed. winError=%1").arg(GetLastError());
         emit errorOccurred(m_sensorId, m_lastErrorMessage);
+        emit s_sendErrorMsg(m_sensorId, m_lastErrorMessage);
         reportLog(m_lastErrorMessage);
         return false;
     }
@@ -209,12 +219,14 @@ bool ColorFocusControl::ReadDistanceBuffer(int readNum, int triggerAxis)
     if (!m_endAcqEvent) {
         m_lastErrorMessage = "ReadDistanceBuffer failed. acquisition event is not initialized";
         emit errorOccurred(m_sensorId, m_lastErrorMessage);
+        emit s_sendErrorMsg(m_sensorId, m_lastErrorMessage);
         reportLog(m_lastErrorMessage);
         return false;
     }
     if (readNum <= 0) {
         m_lastErrorMessage = QString("ReadDistanceBuffer failed. invalid read num %1").arg(readNum);
         emit errorOccurred(m_sensorId, m_lastErrorMessage);
+        emit s_sendErrorMsg(m_sensorId, m_lastErrorMessage);
         reportLog(m_lastErrorMessage);
         return false;
     }
@@ -238,6 +250,7 @@ bool ColorFocusControl::ReadDistanceBuffer(int readNum, int triggerAxis)
     if (actualCount == 0) {
         m_lastErrorMessage = "CCS_GetDistanceArray returned zero points";
         emit errorOccurred(m_sensorId, m_lastErrorMessage);
+        emit s_sendErrorMsg(m_sensorId, m_lastErrorMessage);
         reportLog(m_lastErrorMessage);
         return false;
     }
@@ -268,6 +281,18 @@ bool ColorFocusControl::CloseAcquisitionEvent()
     closeEventHandle();
     reportLog(QString("Sensor %1 acquisition event closed").arg(m_sensorId));
     return true;
+}
+
+bool ColorFocusControl::CloseAcquisitionEvent(int bufferLength, int triggerAxis)
+{
+    const bool ok = ReadDistanceBuffer(bufferLength, triggerAxis);
+    closeEventHandle();
+    return ok;
+}
+
+bool ColorFocusControl::ChangeTriggerMode(TriggerMode mode)
+{
+    return SetTriggerMode(static_cast<int>(mode));
 }
 
 bool ColorFocusControl::ApplyBasicParameters(int measureMode,
@@ -431,6 +456,17 @@ bool ColorFocusControl::SetEncoderTriggerParam(int head, int tail, int interval,
         return reportSdkFailure("CCS_SetEcdTrgParam");
     }
     return true;
+}
+
+bool ColorFocusControl::SetEcdTrgParam(INT32 head, INT32 tail, INT32 interval, BYTE encoderSelect)
+{
+    const int direction = tail >= head ? 1 : 0;
+    return SetEncoderTriggerParam(head, tail, interval, encoderSelect, direction);
+}
+
+bool ColorFocusControl::GetEcdTrgParam(PINT32 head, PINT32 tail, PINT32 interval, PBYTE encoderSelect, PBYTE direction)
+{
+    return GetEncoderTriggerParam(head, tail, interval, encoderSelect, direction);
 }
 
 bool ColorFocusControl::SetDAParam(float signalLowerLimit,
@@ -598,7 +634,25 @@ double ColorFocusControl::GetCurrentDistance()
         reportSdkFailure("CCS_GetCurrentDistanceData");
         return 0.0;
     }
+    emit s_colorFocusUpdated(m_sensorId, distance, intensity);
     return distance;
+}
+
+INT32 ColorFocusControl::ChangeToEncoderValue(float position) const
+{
+    return static_cast<INT32>(qRound(position * 2000.0f));
+}
+
+float ColorFocusControl::ChangeToPositionValue(INT32 encoder) const
+{
+    return qRound(encoder / 2000.0f * 100.0f) / 100.0f;
+}
+
+void ColorFocusControl::ClearMeasureData()
+{
+    m_distanceValues.clear();
+    m_distanceValueMap.clear();
+    m_encoders.clear();
 }
 
 const QList<_DISTANCE_VALUE> &ColorFocusControl::distanceValues() const
@@ -629,6 +683,7 @@ void ColorFocusControl::PollCurrentSample()
         return;
     }
     emit sampleUpdated(m_sensorId, distance, intensity, encoder1, encoder2, encoder3);
+    emit s_colorFocusUpdated(m_sensorId, distance, intensity);
 }
 
 bool ColorFocusControl::ensureConnected(const QString &action)
@@ -638,6 +693,7 @@ bool ColorFocusControl::ensureConnected(const QString &action)
     }
     m_lastErrorMessage = QString("%1 failed. sensor=%2 is not connected").arg(action).arg(m_sensorId);
     emit errorOccurred(m_sensorId, m_lastErrorMessage);
+    emit s_sendErrorMsg(m_sensorId, m_lastErrorMessage);
     reportLog(m_lastErrorMessage);
     return false;
 }
@@ -646,7 +702,10 @@ bool ColorFocusControl::reportSdkFailure(const QString &action)
 {
     const int sdkError = CCS_GetErrorCode(m_sensorId);
     m_lastErrorMessage = QString("%1 failed. sensor=%2 sdkError=%3").arg(action).arg(m_sensorId).arg(sdkError);
+    m_connectFailed = true;
     emit errorOccurred(m_sensorId, m_lastErrorMessage);
+    emit s_sendErrorMsg(m_sensorId, m_lastErrorMessage);
+    emit connectionTimeout();
     reportLog(m_lastErrorMessage);
     return false;
 }
@@ -654,6 +713,7 @@ bool ColorFocusControl::reportSdkFailure(const QString &action)
 void ColorFocusControl::reportLog(const QString &message)
 {
     emit logMessage(message);
+    emit s_writeLog(message);
 }
 
 void ColorFocusControl::closeEventHandle()

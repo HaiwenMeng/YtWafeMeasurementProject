@@ -5,4 +5,5 @@ SUBDIRS += \
     colorFocusContrlDemo \
     AlgoDemo \
     CalibrationTestDemo \
+    WafeMeasureTemplate \
     WafeMeasurementPro

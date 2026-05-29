@@ -24,6 +24,8 @@ MotionController::MotionController(QObject *parent)
 {
     qRegisterMetaType<Motion::AxisPosition>("Motion::AxisPosition");
     qRegisterMetaType<Motion::AxisStateSnapshot>("Motion::AxisStateSnapshot");
+    qRegisterMetaType<AxisPos>("AxisPos");
+    qRegisterMetaType<AxisState>("AxisState");
 
     connect(&m_comm, &TcpCommunicator::connectionStatusChanged,
             this, &MotionController::onConnectionStatusChanged);
@@ -308,6 +310,23 @@ bool MotionController::controlTrigger(int axis, bool enabled)
     return sendCommand(commandCtrlPcom1(axis, enabled ? 1 : 0));
 }
 
+bool MotionController::SetTriggerParam(int axis, double startPos, double endPos, double interval, int direction, int pulseWidth)
+{
+    TriggerParam param;
+    param.axis = axis;
+    param.startPos = startPos;
+    param.endPos = endPos;
+    param.interval = interval;
+    param.direction = direction;
+    param.pulseWidth = pulseWidth;
+    return setTriggerParam(param);
+}
+
+bool MotionController::ControlTrigger(int axis, int state)
+{
+    return controlTrigger(axis, state != 0);
+}
+
 AxisPosition MotionController::getAxesCurrentPos() const
 {
     return m_position;
@@ -318,6 +337,20 @@ AxisStateSnapshot MotionController::getAxesCurrentState() const
     return m_state;
 }
 
+void MotionController::getAxesCurrentPos(double &posX, double &posY, double &posZ) const
+{
+    posX = m_position.x;
+    posY = m_position.y;
+    posZ = m_position.z;
+}
+
+void MotionController::getAxesCurrentState(int &stateX, int &stateY, int &stateZ) const
+{
+    stateX = m_state.stateX;
+    stateY = m_state.stateY;
+    stateZ = m_state.stateZ;
+}
+
 bool MotionController::IsAxisBusying(int axis) const
 {
     return !currentStateKnownForAxis(axis) || !isReadyState(currentStateForAxis(axis));
@@ -326,6 +359,21 @@ bool MotionController::IsAxisBusying(int axis) const
 bool MotionController::isConnected() const
 {
     return m_comm.isConnected();
+}
+
+bool MotionController::getConnectState() const
+{
+    return isConnected();
+}
+
+bool MotionController::getConnectFailState() const
+{
+    return m_connectFailed;
+}
+
+void MotionController::setInitFlag(bool isInit)
+{
+    m_isInit = isInit;
 }
 
 void MotionController::onDataReceived(const QByteArray &data)
@@ -343,12 +391,20 @@ void MotionController::onDataReceived(const QByteArray &data)
 
 void MotionController::onConnectionStatusChanged(bool connected)
 {
+    m_connectFailed = !connected;
     emit connectionStatusChanged(connected);
+    if (connected && m_isInit) {
+        emit s_initOver();
+    }
 }
 
 void MotionController::onErrorOccurred(const QString &message)
 {
+    m_connectFailed = true;
     emit errorMessage(message);
+    emit s_sendErrorMsg(0, message);
+    emit s_writeLog(message);
+    emit connectionTimeout();
 }
 
 bool MotionController::sendCommand(const QString &command)
@@ -402,7 +458,9 @@ bool MotionController::ensureAxisReady(int axis, const QString &actionName) cons
         const QString message = tr("%1 failed, axis %2 state is unknown.")
             .arg(actionName, axisName(axis));
         emit const_cast<MotionController *>(this)->stateNotReady(message);
+        emit const_cast<MotionController *>(this)->s_stateNotReady();
         emit const_cast<MotionController *>(this)->errorMessage(message);
+        emit const_cast<MotionController *>(this)->s_sendErrorMsg(0, message);
         return false;
     }
     if (!isReadyState(currentStateForAxis(axis))) {
@@ -411,7 +469,9 @@ bool MotionController::ensureAxisReady(int axis, const QString &actionName) cons
             .arg(currentStateForAxis(axis))
             .arg(currentErrorForAxis(axis));
         emit const_cast<MotionController *>(this)->stateNotReady(message);
+        emit const_cast<MotionController *>(this)->s_stateNotReady();
         emit const_cast<MotionController *>(this)->errorMessage(message);
+        emit const_cast<MotionController *>(this)->s_sendErrorMsg(0, message);
         return false;
     }
     return true;
@@ -673,6 +733,11 @@ void MotionController::updatePosition(int axis, double value)
     }
     m_position.valid = true;
     emit positionUpdated(m_position);
+    AxisPos pos;
+    pos.pos_x = m_position.x;
+    pos.pos_y = m_position.y;
+    pos.pos_z = m_position.z;
+    emit s_axis_pos(pos);
 }
 
 void MotionController::updateState(int axis, int value)
@@ -684,8 +749,19 @@ void MotionController::updateState(int axis, int value)
     } else if (axis == AxisZ) {
         m_state.stateZ = value;
     }
+    m_state_x = m_state.stateX;
+    m_state_y = m_state.stateY;
+    m_state_z = m_state.stateZ;
     m_state.valid = true;
     emit stateUpdated(m_state);
+    AxisState state;
+    state.state_x = m_state.stateX;
+    state.state_y = m_state.stateY;
+    state.state_z = m_state.stateZ;
+    state.error_x = m_state.errorX;
+    state.error_y = m_state.errorY;
+    state.error_z = m_state.errorZ;
+    emit s_axis_state(state);
 }
 
 void MotionController::updateError(int axis, int value)
@@ -699,6 +775,14 @@ void MotionController::updateError(int axis, int value)
     }
     m_state.valid = true;
     emit stateUpdated(m_state);
+    AxisState state;
+    state.state_x = m_state.stateX;
+    state.state_y = m_state.stateY;
+    state.state_z = m_state.stateZ;
+    state.error_x = m_state.errorX;
+    state.error_y = m_state.errorY;
+    state.error_z = m_state.errorZ;
+    emit s_axis_state(state);
 }
 
 void MotionController::updateHome(int axis, bool value)

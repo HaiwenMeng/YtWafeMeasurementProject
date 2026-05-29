@@ -6,6 +6,32 @@
 
 #include <QObject>
 
+struct AxisStatus
+{
+    double position = 0.0;
+    bool isEnabled = false;
+    bool isHomed = false;
+    bool calibrationEnabled1D = false;
+    bool calibrationEnabled2D = false;
+};
+
+struct AxisPos
+{
+    double pos_x = 0.0;
+    double pos_y = 0.0;
+    double pos_z = 0.0;
+};
+
+struct AxisState
+{
+    int state_x = -1;
+    int state_y = -1;
+    int state_z = -1;
+    int error_x = -1;
+    int error_y = -1;
+    int error_z = -1;
+};
+
 class MotionController : public QObject
 {
     Q_OBJECT
@@ -33,21 +59,40 @@ public:
     bool getHomestatus();
     bool setTriggerParam(const Motion::TriggerParam &param);
     bool controlTrigger(int axis, bool enabled);
+    bool SetTriggerParam(int axis, double startPos, double endPos, double interval, int direction, int pulseWidth = 500);
+    bool ControlTrigger(int axis, int state);
 
     Motion::AxisPosition getAxesCurrentPos() const;
     Motion::AxisStateSnapshot getAxesCurrentState() const;
+    void getAxesCurrentPos(double &posX, double &posY, double &posZ) const;
+    void getAxesCurrentState(int &stateX, int &stateY, int &stateZ) const;
     bool IsAxisBusying(int axis) const;
     bool isConnected() const;
+    bool getConnectState() const;
+    bool getConnectFailState() const;
+    void setInitFlag(bool isInit);
+
+    int m_state_x = -1;
+    int m_state_y = -1;
+    int m_state_z = -1;
 
 signals:
     void connectionStatusChanged(bool connected);
+    void connectionTimeout();
     void logMessage(const QString &message);
     void errorMessage(const QString &message);
+    void s_writeLog(QString message);
+    void s_sendErrorMsg(int sensorId, QString message);
     void positionUpdated(const Motion::AxisPosition &position);
     void stateUpdated(const Motion::AxisStateSnapshot &state);
+    void s_axis_pos(AxisPos position);
+    void s_axis_state(AxisState state);
+    void s_bIsHomeIng();
+    void s_initOver();
     void homeStatusUpdated(bool homeX, bool homeY, bool homeZ);
     void rawDataReceived(const QString &data);
     void stateNotReady(const QString &message);
+    void s_stateNotReady();
 
 private slots:
     void onDataReceived(const QByteArray &data);
@@ -85,6 +130,11 @@ private:
     bool m_homeValidX;
     bool m_homeValidY;
     bool m_homeValidZ;
+    bool m_connectFailed = false;
+    bool m_isInit = false;
 };
+
+Q_DECLARE_METATYPE(AxisPos)
+Q_DECLARE_METATYPE(AxisState)
 
 #endif // MOTIONCONTROLLER_H
