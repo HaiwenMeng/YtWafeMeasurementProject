@@ -123,6 +123,9 @@ bool ColorFocusControl::StartAcquisition(int triggerMode, int pollIntervalMs)
         return true;
     }
 
+    if (!SetScanRate(5)) {
+        return false;
+    }
     if (!SetTriggerMode(triggerMode)) {
         return false;
     }
@@ -159,6 +162,44 @@ bool ColorFocusControl::StopAcquisition()
         return reportSdkFailure("CCS_StopAcquisition");
     }
 
+    m_acquiring = false;
+    emit acquisitionStateChanged(m_sensorId, false);
+    reportLog(QString("Sensor %1 acquisition stopped").arg(m_sensorId));
+    return true;
+}
+
+bool ColorFocusControl::StartAcquisition_CCS(TriggerMode triggerMode)
+{
+    if (!ensureConnected("StartAcquisition_CCS")) {
+        return false;
+    }
+
+    m_distanceValues.clear();
+    m_distanceValueMap.clear();
+    m_encoders.clear();
+
+    if (!SetTriggerMode(static_cast<int>(triggerMode))) {
+        return false;
+    }
+    if (!CCS_StartAcquisition(m_sensorId)) {
+        return reportSdkFailure("CCS_StartAcquisition");
+    }
+
+    m_currentTriggerMode = static_cast<int>(triggerMode);
+    m_acquiring = true;
+    emit acquisitionStateChanged(m_sensorId, true);
+    reportLog(QString("Sensor %1 acquisition started").arg(m_sensorId));
+    return true;
+}
+
+bool ColorFocusControl::StopAcquisition_CCS()
+{
+    if (m_pollTimer) {
+        m_pollTimer->stop();
+    }
+    if (!CCS_StopAcquisition(m_sensorId)) {
+        return reportSdkFailure("CCS_StopAcquisition");
+    }
     m_acquiring = false;
     emit acquisitionStateChanged(m_sensorId, false);
     reportLog(QString("Sensor %1 acquisition stopped").arg(m_sensorId));
@@ -460,8 +501,7 @@ bool ColorFocusControl::SetEncoderTriggerParam(int head, int tail, int interval,
 
 bool ColorFocusControl::SetEcdTrgParam(INT32 head, INT32 tail, INT32 interval, BYTE encoderSelect)
 {
-    const int direction = tail >= head ? 1 : 0;
-    return SetEncoderTriggerParam(head, tail, interval, encoderSelect, direction);
+    return SetEncoderTriggerParam(head, tail, interval, encoderSelect, 1);
 }
 
 bool ColorFocusControl::GetEcdTrgParam(PINT32 head, PINT32 tail, PINT32 interval, PBYTE encoderSelect, PBYTE direction)
@@ -674,15 +714,12 @@ void ColorFocusControl::PollCurrentSample()
 {
     float distance = 0.0f;
     float intensity = 0.0f;
-    INT32 encoder1 = 0;
-    INT32 encoder2 = 0;
-    INT32 encoder3 = 0;
-    if (!CCS_GetCurrentDistanceAndEcdData(m_sensorId, &distance, &intensity, &encoder1, &encoder2, &encoder3)) {
-        reportSdkFailure("CCS_GetCurrentDistanceAndEcdData");
+    if (!CCS_GetCurrentDistanceData(m_sensorId, &distance, &intensity)) {
+        reportSdkFailure("CCS_GetCurrentDistanceData");
         StopAcquisition();
         return;
     }
-    emit sampleUpdated(m_sensorId, distance, intensity, encoder1, encoder2, encoder3);
+    emit sampleUpdated(m_sensorId, distance, intensity, 0, 0, 0);
     emit s_colorFocusUpdated(m_sensorId, distance, intensity);
 }
 

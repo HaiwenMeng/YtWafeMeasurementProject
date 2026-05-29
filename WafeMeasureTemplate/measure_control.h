@@ -8,7 +8,6 @@
 #include "paramsettings.h"
 #include "motion_control.h"
 #include "ManualWarpAlg.h"
-#include "LOCK.H"
 #include <algorithm>  // std::max_element
 #include <cmath>
 #include <stdexcept>
@@ -72,8 +71,6 @@ public:
     explicit MeasureControl( ParamSettings &paramSettings, QObject *parent = nullptr);
     ~MeasureControl();
 
-    void InitMeasureControl();
-
     inline void SetColorFocusPointer(QSharedPointer<ColorFocusControl> colorFocusPtr_1, QSharedPointer<ColorFocusControl> colorFocusPtr_2) {
         m_pColorFocusControl_top = colorFocusPtr_1;
         m_pColorFocusControl_bottom = colorFocusPtr_2;
@@ -117,10 +114,6 @@ public:
     void StartTrigger();
 
     void ReadAllZGravityFile();
-
-    bool InitU1000();
-    bool TerminateU1000();
-    bool CheckDog();
 
     void ResetTrimSize(QString trimSize);
 
@@ -225,7 +218,6 @@ signals:
     void s_measureOver(double BOW, double WARP, double CENTER_THK, double AVERAGE_THK, double TTV, double SORI);
     void s_isMeasurePathFlagChanged(bool isMeasurePath);
     void s_pathDataOver(int pathIndex);
-    void s_checkDogResult(bool checkResult);
 public:
     QString SaveHeatImageFile;
     QString Save3DImageFile;

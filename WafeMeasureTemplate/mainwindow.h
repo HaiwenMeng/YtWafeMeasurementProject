@@ -127,8 +127,6 @@ public slots:
     void CheckDevicePowerOff();
     void OnStateNotReadyWarning();
 
-    void OnCheckDogResult(bool checkResult);
-
     void WriteWaferIdToFile(QString waferID);
     bool SavePaintImageToFile();
     QSet<QString> ReadWaferIdToSet(QFile& file);
@@ -205,6 +203,9 @@ private:
     bool fuzzyEqual(double a, double b, double epsilon = 1e-3);
     void waitInPos(QPointF dstPosition);
     void waitInPos_z(double dstPosition);
+    void LogCalibrationMove(const QString& tag, const QPointF& waitTarget, const QPointF& scanTarget, double standardThickness);
+    double CollectCalibrationTotal(const QString& tag, double standardThickness);
+    double ReadColorFocusDistanceSync(const QSharedPointer<ColorFocusControl>& control, const QString& tag, bool* ok = nullptr);
 
     void UpdateResultTable(double BOW, double WARP, double CENTER_THK, double AVERAGE_THK, double TTV, double SORI);
     bool CheckValue(MeasureValue& rangeValue, double value, QTableWidgetItem* item);
@@ -377,8 +378,6 @@ private:
 
     SystemState m_currentSystemState = SystemState::Ready;
     MeasureMode ProgramMeasureMode = NormalMeasure;
-    bool m_bCheckResult = false;
-
     QCPPlottableLegendItem *lastHighlightedItem = nullptr;
 
     double m_wait_pos_x = -1;

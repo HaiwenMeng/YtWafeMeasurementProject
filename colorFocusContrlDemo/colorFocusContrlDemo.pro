@@ -4,7 +4,7 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++17
 
-SDK_DIR = $$clean_path($$PWD/../BaseLib/SDK_V3_40_x64)
+SDK_DIR = $$clean_path($$PWD/../BaseLib/SDK_V3_30_x64)
 INCLUDEPATH += $$SDK_DIR
 LIBS += -L$$SDK_DIR -lDLL_CCS
 
@@ -31,4 +31,3 @@ win32 {
     OUT_DLL = $$shell_path($$DESTDIR/DLL_CCS.dll)
     QMAKE_POST_LINK += $$quote(cmd /c copy /Y "$$SDK_DLL" "$$OUT_DLL")
 }
-

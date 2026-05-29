@@ -35,6 +35,16 @@ MotionController::MotionController(QObject *parent)
             this, &MotionController::onErrorOccurred);
     connect(&m_comm, &TcpCommunicator::logMessage,
             this, &MotionController::logMessage);
+
+    m_timerBeforeHomeCommand = new QTimer(this);
+    m_timerBeforeHomeCommand->setSingleShot(true);
+    connect(m_timerBeforeHomeCommand, &QTimer::timeout,
+            this, &MotionController::handleTimeoutBeforeHomeCommand);
+
+    m_timerAfterHomeCommand = new QTimer(this);
+    m_timerAfterHomeCommand->setSingleShot(true);
+    connect(m_timerAfterHomeCommand, &QTimer::timeout,
+            this, &MotionController::handleTimeoutAfterHomeCommand);
 }
 
 void MotionController::connectToController(const QString &host, quint16 port)
@@ -394,13 +404,28 @@ void MotionController::onConnectionStatusChanged(bool connected)
     m_connectFailed = !connected;
     emit connectionStatusChanged(connected);
     if (connected && m_isInit) {
-        emit s_initOver();
+        emit s_writeLog(QStringLiteral("Motion controller connected."));
+        m_initSequenceActive = true;
+        m_initHomeIssued = false;
+        m_homeX = false;
+        m_homeY = false;
+        m_homeZ = false;
+        m_homeValidX = false;
+        m_homeValidY = false;
+        m_homeValidZ = false;
+        m_isInit = false;
+        clearError();
+        getHomestatus();
+        ctrlAutoSnd(100);
+    } else if (!connected) {
+        m_initSequenceActive = false;
     }
 }
 
 void MotionController::onErrorOccurred(const QString &message)
 {
     m_connectFailed = true;
+    m_initSequenceActive = false;
     emit errorMessage(message);
     emit s_sendErrorMsg(0, message);
     emit s_writeLog(message);
@@ -565,9 +590,25 @@ bool MotionController::parseAutoSnd(const QStringList &parts, const QString &fra
     m_state.errorY = qRound(values.at(9));
     m_state.errorX = qRound(values.at(15));
     m_state.valid = true;
+    m_state_x = m_state.stateX;
+    m_state_y = m_state.stateY;
+    m_state_z = m_state.stateZ;
 
     emit positionUpdated(m_position);
     emit stateUpdated(m_state);
+    AxisPos pos;
+    pos.pos_x = m_position.x;
+    pos.pos_y = m_position.y;
+    pos.pos_z = m_position.z;
+    emit s_axis_pos(pos);
+    AxisState state;
+    state.state_x = m_state.stateX;
+    state.state_y = m_state.stateY;
+    state.state_z = m_state.stateZ;
+    state.error_x = m_state.errorX;
+    state.error_y = m_state.errorY;
+    state.error_z = m_state.errorZ;
+    emit s_axis_state(state);
     return true;
 }
 
@@ -800,7 +841,56 @@ void MotionController::updateHome(int axis, bool value)
 
     if (m_homeValidX && m_homeValidY && m_homeValidZ) {
         emit homeStatusUpdated(m_homeX, m_homeY, m_homeZ);
+        if (axis == AxisZ && m_initSequenceActive && m_timerBeforeHomeCommand) {
+            m_timerBeforeHomeCommand->start(1000);
+        }
     }
+}
+
+void MotionController::handleTimeoutBeforeHomeCommand()
+{
+    if (!m_initSequenceActive) {
+        return;
+    }
+
+    if (!isReadyState(m_state.stateX) ||
+        !isReadyState(m_state.stateY) ||
+        !isReadyState(m_state.stateZ)) {
+        clearError();
+        getHomestatus();
+        return;
+    }
+
+    if (!m_homeValidX || !m_homeValidY || !m_homeValidZ) {
+        getHomestatus();
+        return;
+    }
+
+    if (m_homeX && m_homeY && m_homeZ) {
+        m_initSequenceActive = false;
+        emit s_initOver();
+        return;
+    }
+
+    if (m_initHomeIssued) {
+        return;
+    }
+
+    bool ok = true;
+    ok = homeAxisAsync(AxisX) && ok;
+    ok = homeAxisAsync(AxisY) && ok;
+    ok = homeAxisAsync(AxisZ) && ok;
+    if (ok) {
+        m_initHomeIssued = true;
+        if (m_timerAfterHomeCommand) {
+            m_timerAfterHomeCommand->start(1000);
+        }
+    }
+}
+
+void MotionController::handleTimeoutAfterHomeCommand()
+{
+    emit s_bIsHomeIng();
 }
 
 int MotionController::currentStateForAxis(int axis) const

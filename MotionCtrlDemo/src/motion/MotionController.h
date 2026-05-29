@@ -5,6 +5,7 @@
 #include "../comm/TcpCommunicator.h"
 
 #include <QObject>
+#include <QTimer>
 
 struct AxisStatus
 {
@@ -120,6 +121,8 @@ private:
     int currentErrorForAxis(int axis) const;
     bool currentStateKnownForAxis(int axis) const;
     bool parseLastInt(const QList<double> &values, int *value) const;
+    void handleTimeoutBeforeHomeCommand();
+    void handleTimeoutAfterHomeCommand();
 
     TcpCommunicator m_comm;
     Motion::AxisPosition m_position;
@@ -132,6 +135,10 @@ private:
     bool m_homeValidZ;
     bool m_connectFailed = false;
     bool m_isInit = false;
+    bool m_initSequenceActive = false;
+    bool m_initHomeIssued = false;
+    QTimer *m_timerBeforeHomeCommand = nullptr;
+    QTimer *m_timerAfterHomeCommand = nullptr;
 };
 
 Q_DECLARE_METATYPE(AxisPos)

@@ -151,7 +151,6 @@ MeasureControl::MeasureControl(ParamSettings &paramSettings, QObject *parent)
     });
 
       HandelDll=nullptr;
-    InitMeasureControl();
 
 }
 
@@ -159,15 +158,6 @@ MeasureControl::~MeasureControl()
 {
     if(HandelDll)
     FreeLibrary(HandelDll);
-}
-
-
-
-void MeasureControl::InitMeasureControl()
-{
-    if(!InitU1000()){
-        return;
-    }
 }
 
 void MeasureControl::ReadAllZGravityFile()
@@ -263,57 +253,6 @@ void MeasureControl::ReadAllZGravityFile()
     }
 
     qDebug() << u8"结束读取文件时间：" << QDateTime::currentDateTime();
-}
-
-bool MeasureControl::InitU1000()
-{
-    if(InitiateLock(0)){
-        if(!CheckDog()){
-            emit s_checkDogResult(false);
-            emit s_writeLog(QString(u8"加密模块校验失败！"));
-            return false;
-        }
-        emit s_checkDogResult(true);
-        return true;
-    }else{
-        emit s_writeLog(QString(u8"初始化加密模块失败, 错误码: %1").arg(LYFGetLastErr()));
-        emit s_sendErrorMsg(0, QString(u8"初始化加密模块失败, 错误码: %1").arg(LYFGetLastErr()));
-        return false;
-    }
-}
-
-bool MeasureControl::TerminateU1000()
-{
-    if(TerminateLock(0)){
-        return true;
-    }else{
-        emit s_writeLog(QString(u8"终止U1000失败, 错误码: %1").arg(LYFGetLastErr()));
-        emit s_sendErrorMsg(0, QString(u8"终止U1000失败, 错误码: %1").arg(LYFGetLastErr()));
-        return false;
-    }
-}
-
-bool MeasureControl::CheckDog()
-{
-#ifndef NOT_USE_DOG
-    long uiRet = 0,x= 0, lock = 0, shield = 0;//
-    x = QRandomGenerator::global()->generate() * 65535
-        + QRandomGenerator::global()->generate() * 32761
-        + QRandomGenerator::global()->generate() * 256
-        + QRandomGenerator::global()->generate() * 128;
-    uiRet = Lock32_Function(x, &lock, 0);
-    emit s_writeLog(QString(u8"IsNewBowAlg = %1").arg(m_paramSettings.IsNewBowAlg.toInt()));
-    if(m_paramSettings.IsNewBowAlg.toInt())
-        shield = ShieldPC(x, NJ_SOFEDOG_KEY1, NJ_SOFEDOG_KEY2, NJ_SOFEDOG_KEY3, NJ_SOFEDOG_KEY4);
-    else    //台湾使用的是新算法求WARP但BOW使用的是老算法
-        shield = ShieldPC(x, TW_SOFEDOG_KEY1, TW_SOFEDOG_KEY2, TW_SOFEDOG_KEY3, TW_SOFEDOG_KEY4);
-    if (lock == shield) {
-        return true;
-    } else {
-        return false;
-    }
-#endif
-    return true;
 }
 
 void MeasureControl::SetCenterPoints(double centerX, double centerY)
@@ -936,9 +875,6 @@ void MeasureControl::StartMeasure(MeasureMode mode)
   
   
    
-    if(!CheckDog()){
-        return;
-    }
     m_bStopMeasureFlag = false;
     m_bEStopFlag = false;
 
@@ -1292,10 +1228,6 @@ void MeasureControl::StartMeasure(MeasureMode mode)
 
 
     //调用算法
-    if(!CheckDog()){
-        return;
-    }
-
     qDebug() << u8"开始调用算法" << QDateTime::currentDateTime();
    
 
@@ -2728,6 +2660,7 @@ void MeasureControl::FitZM3D(std::vector<double> x, std::vector<double> y, std::
     SurfacePointCloud_Xs.clear();
     SurfacePointCloud_Ys.clear();
     SurfacePointCloud_ZMs.clear();
+
     if (point_num <= 0 ||
         point_num > static_cast<int>(x.size()) ||
         point_num > static_cast<int>(y.size()) ||
@@ -2738,11 +2671,45 @@ void MeasureControl::FitZM3D(std::vector<double> x, std::vector<double> y, std::
         return;
     }
 
-    for (int i = 0; i < point_num; i++)
+    if (!HandelDll) {
+        QDir appDir = QCoreApplication::applicationDirPath();
+        const QString algDllPath = QDir::toNativeSeparators(appDir.filePath("AlgApi.dll"));
+        HandelDll = LoadLibraryW(reinterpret_cast<LPCWSTR>(algDllPath.utf16()));
+        if (!HandelDll) {
+            const QString error = QString("FitZM3DWithContour failed, load AlgApi.dll failed, winError=%1").arg(GetLastError());
+            emit s_sendErrorMsg(0, error);
+            emit s_writeLog(error);
+            return;
+        }
+    }
+
+    FitZM3DWithContour dllfunc_new = (FitZM3DWithContour)GetProcAddress(HandelDll, "FitZM3DWithContour");
+    if (!dllfunc_new) {
+        const QString error = QString("FitZM3DWithContour failed, function not found, winError=%1").arg(GetLastError());
+        emit s_sendErrorMsg(0, error);
+        emit s_writeLog(error);
+        return;
+    }
+
+    int maxSampleNum = theta_Points* r_Points;
+    std::vector<double> out_Xs(maxSampleNum + 1);
+    std::vector<double> out_Ys(maxSampleNum + 1);
+    std::vector<double> out_ZMs(maxSampleNum + 1);
+    std::vector<double> contour_X(200), contour_XZ(200), contour_Y(200), contour_YZ(200);
+
+    if (dllfunc_new(x.data(), y.data(), ZM.data(), out_Xs.data(), out_Ys.data(), out_ZMs.data(), contour_X.data(), contour_XZ.data(), contour_Y.data(), contour_YZ.data(), point_num, Radius* 1000.0, radiusCut, 200, theta_Points, r_Points) != 0)
     {
-        SurfacePointCloud_Xs.push_back(x[i]);
-        SurfacePointCloud_Ys.push_back(y[i]);
-        SurfacePointCloud_ZMs.push_back(ZM[i]);
+        const QString error = QStringLiteral("FitZM3DWithContour failed.");
+        emit s_sendErrorMsg(0, error);
+        emit s_writeLog(error);
+        return;
+    }
+
+    for (int i = 0; i < maxSampleNum; i++)
+    {
+        SurfacePointCloud_Xs.push_back(out_Xs[i]);
+        SurfacePointCloud_Ys.push_back(out_Ys[i]);
+        SurfacePointCloud_ZMs.push_back(out_ZMs[i]);
     }
 
         //写文件
@@ -2760,7 +2727,10 @@ void MeasureControl::FitZM3D(std::vector<double> x, std::vector<double> y, std::
             else
             {
                 qDebug() << "创建目录失败:" << ZGravityFileFilePath;
-                // 这里可以添加错误处理代码，例如显示错误消息或退出程序
+                const QString error = QString("FitZM3DWithContour failed, create directory failed: %1").arg(ZGravityFileFilePath);
+                emit s_sendErrorMsg(0, error);
+                emit s_writeLog(error);
+                return;
             }
         }
 
@@ -2771,9 +2741,9 @@ void MeasureControl::FitZM3D(std::vector<double> x, std::vector<double> y, std::
             /* 以文本方式写入*/
             if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
                 QTextStream CSVout(&file);
-                for (size_t i = 0; i < SurfacePointCloud_Xs.size(); i++)
+                for (size_t i = 0; i < contour_X.size(); i++)
                 {
-                    CSVout << QString("%1,%2").arg(SurfacePointCloud_Xs[i]).arg(SurfacePointCloud_ZMs[i]) << "\n";
+                    CSVout << QString("%1,%2").arg(contour_X[i]).arg(contour_XZ[i]) << "\n";
                 }
             }
             file.close();
@@ -2786,9 +2756,9 @@ void MeasureControl::FitZM3D(std::vector<double> x, std::vector<double> y, std::
             /* 以文本方式写入*/
             if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
                 QTextStream CSVout(&file);
-                for (size_t i = 0; i < SurfacePointCloud_Ys.size(); i++)
+                for (size_t i = 0; i < contour_X.size(); i++)
                 {
-                    CSVout << QString("%1,%2").arg(SurfacePointCloud_Ys[i]).arg(SurfacePointCloud_ZMs[i]) << "\n";
+                    CSVout << QString("%1,%2").arg(contour_Y[i]).arg(contour_YZ[i]) << "\n";
                 }
             }
             file.close();

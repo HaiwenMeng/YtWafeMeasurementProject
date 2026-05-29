@@ -136,7 +136,6 @@ MainWindow::MainWindow(QWidget *parent)
     m_pMeasureControl->moveToThread(m_pMeasureControlThread);
     m_pMeasureControl->SetMotionControlPointer(m_pMotionController);
 
-    connect(m_pMeasureControl, &MeasureControl::s_checkDogResult, this, &MainWindow::OnCheckDogResult);
     connect(m_pMeasureControl, SIGNAL(s_writeLog(QString)), m_log_widget.get(), SLOT(wirteLog(QString)));
     connect(m_pMeasureControl, SIGNAL(s_sendErrorMsg(int,QString)), this, SLOT(showErrorMsg(int,QString)));
     connect(m_pMeasureControl, SIGNAL(s_measureOver(double,double,double,double,double,double)), this, SLOT(OnMeasureOver(double,double,double,double,double,double)));
@@ -144,9 +143,6 @@ MainWindow::MainWindow(QWidget *parent)
     connect(this, SIGNAL(s_eStop()), m_pMeasureControl, SLOT(OnupdateEStopFlag()), Qt::DirectConnection);
     connect(m_pMeasureControl, SIGNAL(s_pathDataOver(int)), this, SLOT(OnUpdatePlot(int)));
     connect(m_pMeasureControl, &MeasureControl::s_isMeasurePathFlagChanged, this, &MainWindow::UpdateMeasurePathFlag);
-    // 连接线程启动后的初始化操作
-    connect(m_pMeasureControlThread, &QThread::started, m_pMeasureControl, &MeasureControl::InitMeasureControl);
-
     // QObject::connect(m_pMeasureControl, &MeasureControl::s_pathData, this,
     //                  [this](QVector<double> vecThickness) {
     //                      OnUpdatePlot(vecThickness);
@@ -399,7 +395,6 @@ void MainWindow::DisconnectAndClean()
 
 
     if (m_pMeasureControl) {
-        m_pMeasureControl->TerminateU1000();
         m_pMeasureControl->cleanup();
     }
   
@@ -545,11 +540,6 @@ void MainWindow::CheckDevicePowerOff()
    
 }
 
-void MainWindow::OnCheckDogResult(bool checkResult)
-{
-    m_bCheckResult = checkResult;
-}
-
 void MainWindow::OnStateNotReadyWarning()
 {
     QMessageBox::warning(this, u8"提示", QString(u8"轴系运动中，或未处于准备就绪状态，请确认！"));
@@ -649,12 +639,6 @@ void MainWindow::on_pushButton_calibration_clicked()
         return;
     }
 
-    if(!m_bCheckResult)
-    {
-        QMessageBox::warning(this, u8"提示", QString(u8"加密模块验证失败！"));
-        return;
-    }
-
     if(!CheckSystemStateReady()){
         return;
     }
@@ -698,6 +682,24 @@ void MainWindow::on_pushButton_calibration_clicked()
                 double standard_thickness_3 = settings.standardThickness3.toDouble();
                 double standard_thickness_4 = settings.standardThickness4.toDouble();
 
+                emit s_writeLog(QString("[CAL-DIAG] begin mode=4std zTarget=%1 axis=(%2,%3,%4) state=(%5,%6,%7) std=(%8,%9,%10,%11) cfgTotal=(%12,%13,%14,%15) dirX=%16")
+                    .arg(dstZPos, 0, 'f', 3)
+                    .arg(m_axisPos.pos_x, 0, 'f', 3)
+                    .arg(m_axisPos.pos_y, 0, 'f', 3)
+                    .arg(m_axisPos.pos_z, 0, 'f', 3)
+                    .arg(m_axisState.state_x)
+                    .arg(m_axisState.state_y)
+                    .arg(m_axisState.state_z)
+                    .arg(standard_thickness_1, 0, 'f', 3)
+                    .arg(standard_thickness_2, 0, 'f', 3)
+                    .arg(standard_thickness_3, 0, 'f', 3)
+                    .arg(standard_thickness_4, 0, 'f', 3)
+                    .arg(settings.standardTotalVal1)
+                    .arg(settings.standardTotalVal2)
+                    .arg(settings.standardTotalVal3)
+                    .arg(settings.standardTotalVal4)
+                    .arg(settings.CalibrationDirectionOfX));
+
                 m_bIsCalibrating = true;
 
                 double dx = 3;
@@ -722,18 +724,13 @@ void MainWindow::on_pushButton_calibration_clicked()
                     }, Qt::BlockingQueuedConnection);
                 //等待到位
                 waitInPos(QPointF(standard_1_x + dx, standard_1_y + dy));
+                LogCalibrationMove("standard1", QPointF(standard_1_x + dx, standard_1_y + dy), QPointF(standard_1_x - dx, standard_1_y - dy), standard_thickness_1);
                 //测量一小段位置
                 QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                     {
                         m_pMotionController->moveMultiAxisLinear(standard_1_x - dx, standard_1_y - dy, 2.0, 40.0, 40.0);
                     }, Qt::BlockingQueuedConnection);
-                double realTotal_1 = 0.0;
-                m_dataBuffer.clear();
-                for (int n = 0; n < 30; ++n) {
-                    realTotal_1 += filterValue(m_current_distance_top + m_current_distance_bottom + standard_thickness_1);
-                    QThread::msleep(100);
-                }
-                realTotal_1 = realTotal_1 / 30 + m_standardCompensationValue;
+                double realTotal_1 = CollectCalibrationTotal("standard1", standard_thickness_1);
                 //更新配置数据及显示
                 m_mapCalibrationInfo[500] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_1, realTotal_1 };
                 QMetaObject::invokeMethod(this, [&]()
@@ -754,18 +751,13 @@ void MainWindow::on_pushButton_calibration_clicked()
                     }, Qt::BlockingQueuedConnection);
                 //等待到位
                 waitInPos(QPointF(standard_2_x + dx, standard_2_y + dy));
+                LogCalibrationMove("standard2", QPointF(standard_2_x + dx, standard_2_y + dy), QPointF(standard_2_x - dx, standard_2_y - dy), standard_thickness_2);
                 //测量一小段位置
                 QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                     {
                         m_pMotionController->moveMultiAxisLinear(standard_2_x - dx, standard_2_y - dy, 2.0, 40.0, 40.0);
                     }, Qt::BlockingQueuedConnection);
-                double realTotal_2 = 0.0;
-                m_dataBuffer.clear();
-                for (int n = 0; n < 30; ++n) {
-                    realTotal_2 += filterValue(m_current_distance_top + m_current_distance_bottom + standard_thickness_2);
-                    QThread::msleep(100);
-                }
-                realTotal_2 = realTotal_2 / 30 + m_standardCompensationValue;
+                double realTotal_2 = CollectCalibrationTotal("standard2", standard_thickness_2);
                 //更新配置数据及显示
                 m_mapCalibrationInfo[725] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_2, realTotal_2 };
                 QMetaObject::invokeMethod(this, [&]()
@@ -785,18 +777,13 @@ void MainWindow::on_pushButton_calibration_clicked()
                     }, Qt::BlockingQueuedConnection);
                 //等待到位
                 waitInPos(QPointF(standard_3_x + dx, standard_3_y + dy));
+                LogCalibrationMove("standard3", QPointF(standard_3_x + dx, standard_3_y + dy), QPointF(standard_3_x - dx, standard_3_y - dy), standard_thickness_3);
                 //测量一小段位置
                 QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                     {
                         m_pMotionController->moveMultiAxisLinear(standard_3_x - dx, standard_3_y - dy, 2.0, 40.0, 40.0);
                     }, Qt::BlockingQueuedConnection);
-                double realTotal_3 = 0.0;
-                m_dataBuffer.clear();
-                for (int n = 0; n < 30; ++n) {
-                    realTotal_3 += filterValue(m_current_distance_top + m_current_distance_bottom + standard_thickness_3);
-                    QThread::msleep(100);
-                }
-                realTotal_3 = realTotal_3 / 30 + m_standardCompensationValue;
+                double realTotal_3 = CollectCalibrationTotal("standard3", standard_thickness_3);
                 //更新配置数据及显示
                 m_mapCalibrationInfo[800] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_3, realTotal_3 };
                 QMetaObject::invokeMethod(this, [&]()
@@ -817,18 +804,13 @@ void MainWindow::on_pushButton_calibration_clicked()
                     }, Qt::BlockingQueuedConnection);
                 //等待到位
                 waitInPos(QPointF(standard_4_x + dx, standard_4_y + dy));
+                LogCalibrationMove("standard4", QPointF(standard_4_x + dx, standard_4_y + dy), QPointF(standard_4_x - dx, standard_4_y - dy), standard_thickness_4);
                 //测量一小段位置
                 QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                     {
                         m_pMotionController->moveMultiAxisLinear(standard_4_x - dx, standard_4_y - dy, 2.0, 40.0, 40.0);
                     }, Qt::BlockingQueuedConnection);
-                double realTotal_4 = 0.0;
-                m_dataBuffer.clear();
-                for (int n = 0; n < 30; ++n) {
-                    realTotal_4 += filterValue(m_current_distance_top + m_current_distance_bottom + standard_thickness_4);
-                    QThread::msleep(100);
-                }
-                realTotal_4 = realTotal_4 / 30 + m_standardCompensationValue;
+                double realTotal_4 = CollectCalibrationTotal("standard4", standard_thickness_4);
                 //更新配置数据及显示
                 m_mapCalibrationInfo[1550] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_4, realTotal_4 };
                 QMetaObject::invokeMethod(this, [&]()
@@ -925,6 +907,22 @@ void MainWindow::on_pushButton_calibration_clicked()
                     double standard_thickness_2 = settings.standardThickness2.toDouble();
                     double standard_thickness_3 = settings.standardThickness3.toDouble();
 
+                    emit s_writeLog(QString("[CAL-DIAG] begin mode=3std zTarget=%1 axis=(%2,%3,%4) state=(%5,%6,%7) std=(%8,%9,%10) cfgTotal=(%11,%12,%13) dirX=%14")
+                        .arg(dstZPos, 0, 'f', 3)
+                        .arg(m_axisPos.pos_x, 0, 'f', 3)
+                        .arg(m_axisPos.pos_y, 0, 'f', 3)
+                        .arg(m_axisPos.pos_z, 0, 'f', 3)
+                        .arg(m_axisState.state_x)
+                        .arg(m_axisState.state_y)
+                        .arg(m_axisState.state_z)
+                        .arg(standard_thickness_1, 0, 'f', 3)
+                        .arg(standard_thickness_2, 0, 'f', 3)
+                        .arg(standard_thickness_3, 0, 'f', 3)
+                        .arg(settings.standardTotalVal1)
+                        .arg(settings.standardTotalVal2)
+                        .arg(settings.standardTotalVal3)
+                        .arg(settings.CalibrationDirectionOfX));
+
                     m_bIsCalibrating = true;
 
                     double dx = 3;
@@ -949,18 +947,13 @@ void MainWindow::on_pushButton_calibration_clicked()
                         }, Qt::BlockingQueuedConnection);
                     //等待到位
                     waitInPos(QPointF(standard_1_x + dx, standard_1_y + dy));
+                    LogCalibrationMove("standard1", QPointF(standard_1_x + dx, standard_1_y + dy), QPointF(standard_1_x - dx, standard_1_y - dy), standard_thickness_1);
                     //测量一小段位置
                     QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                         {
                             m_pMotionController->moveMultiAxisLinear(standard_1_x - dx, standard_1_y - dy, 2.0, 40.0, 40.0);
                         }, Qt::BlockingQueuedConnection);
-                    double realTotal_1 = 0.0;
-                    m_dataBuffer.clear();
-                    for (int n = 0; n < 30; ++n) {
-                        realTotal_1 += filterValue(m_current_distance_top + m_current_distance_bottom + standard_thickness_1);
-                        QThread::msleep(100);
-                    }
-                    realTotal_1 = realTotal_1 / 30 + m_standardCompensationValue;
+                    double realTotal_1 = CollectCalibrationTotal("standard1", standard_thickness_1);
                     //更新配置数据及显示
                     m_mapCalibrationInfo[500] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_1, realTotal_1 };
                     QMetaObject::invokeMethod(this, [&]()
@@ -981,18 +974,13 @@ void MainWindow::on_pushButton_calibration_clicked()
                         }, Qt::BlockingQueuedConnection);
                     //等待到位
                     waitInPos(QPointF(standard_2_x + dx, standard_2_y + dy));
+                    LogCalibrationMove("standard2", QPointF(standard_2_x + dx, standard_2_y + dy), QPointF(standard_2_x - dx, standard_2_y - dy), standard_thickness_2);
                     //测量一小段位置
                     QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                         {
                             m_pMotionController->moveMultiAxisLinear(standard_2_x - dx, standard_2_y - dy, 2.0, 40.0, 40.0);
                         }, Qt::BlockingQueuedConnection);
-                    double realTotal_2 = 0.0;
-                    m_dataBuffer.clear();
-                    for (int n = 0; n < 30; ++n) {
-                        realTotal_2 += filterValue(m_current_distance_top + m_current_distance_bottom + standard_thickness_2);
-                        QThread::msleep(100);
-                    }
-                    realTotal_2 = realTotal_2 / 30 + m_standardCompensationValue;
+                    double realTotal_2 = CollectCalibrationTotal("standard2", standard_thickness_2);
                     //更新配置数据及显示
                     m_mapCalibrationInfo[725] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_2, realTotal_2 };
                     QMetaObject::invokeMethod(this, [&]()
@@ -1012,18 +1000,13 @@ void MainWindow::on_pushButton_calibration_clicked()
                         }, Qt::BlockingQueuedConnection);
                     //等待到位
                     waitInPos(QPointF(standard_3_x + dx, standard_3_y + dy));
+                    LogCalibrationMove("standard3", QPointF(standard_3_x + dx, standard_3_y + dy), QPointF(standard_3_x - dx, standard_3_y - dy), standard_thickness_3);
                     //测量一小段位置
                     QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                         {
                             m_pMotionController->moveMultiAxisLinear(standard_3_x - dx, standard_3_y - dy, 2.0, 40.0, 40.0);
                         }, Qt::BlockingQueuedConnection);
-                    double realTotal_3 = 0.0;
-                    m_dataBuffer.clear();
-                    for (int n = 0; n < 30; ++n) {
-                        realTotal_3 += filterValue(m_current_distance_top + m_current_distance_bottom + standard_thickness_3);
-                        QThread::msleep(100);
-                    }
-                    realTotal_3 = realTotal_3 / 30 + m_standardCompensationValue;
+                    double realTotal_3 = CollectCalibrationTotal("standard3", standard_thickness_3);
                     //更新配置数据及显示
                     m_mapCalibrationInfo[800] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_3, realTotal_3 };
                     QMetaObject::invokeMethod(this, [&]()
@@ -1102,6 +1085,18 @@ void MainWindow::on_pushButton_calibration_clicked()
 
                     double standard_thickness_4 = settings.standardThickness4.toDouble();
 
+                    emit s_writeLog(QString("[CAL-DIAG] begin mode=1550 zTarget=%1 axis=(%2,%3,%4) state=(%5,%6,%7) std=%8 cfgTotal=%9 dirX=%10")
+                        .arg(dstZPos, 0, 'f', 3)
+                        .arg(m_axisPos.pos_x, 0, 'f', 3)
+                        .arg(m_axisPos.pos_y, 0, 'f', 3)
+                        .arg(m_axisPos.pos_z, 0, 'f', 3)
+                        .arg(m_axisState.state_x)
+                        .arg(m_axisState.state_y)
+                        .arg(m_axisState.state_z)
+                        .arg(standard_thickness_4, 0, 'f', 3)
+                        .arg(settings.standardTotalVal4)
+                        .arg(settings.CalibrationDirectionOfX));
+
                     m_bIsCalibrating = true;
 
 
@@ -1128,18 +1123,13 @@ void MainWindow::on_pushButton_calibration_clicked()
                         }, Qt::BlockingQueuedConnection);
                     //等待到位
                     waitInPos(QPointF(standard_4_x, standard_4_y + 3));
+                    LogCalibrationMove("standard4-run1", QPointF(standard_4_x, standard_4_y + 3), QPointF(standard_4_x - dx, standard_4_y - dy), standard_thickness_4);
                     //测量一小段位置
                     QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                         {
                             m_pMotionController->moveMultiAxisLinear(standard_4_x-dx, standard_4_y - dy, 2.0, 40.0, 40.0);
                         }, Qt::BlockingQueuedConnection);
-                    realTotalFirstTime = 0.0;
-                    m_dataBuffer.clear();
-                    for (int n = 0; n < 30; ++n) {
-                        realTotalFirstTime += filterValue(m_current_distance_top + m_current_distance_bottom + standard_thickness_4);
-                        QThread::msleep(100);
-                    }
-                    realTotalFirstTime = realTotalFirstTime / 30 + m_standardCompensationValue;
+                    realTotalFirstTime = CollectCalibrationTotal("standard4-run1", standard_thickness_4);
                     //更新配置数据及显示
                     m_mapCalibrationInfo[1550] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_4, realTotalFirstTime };
                     QMetaObject::invokeMethod(this, [&]()
@@ -1159,18 +1149,13 @@ void MainWindow::on_pushButton_calibration_clicked()
                         }, Qt::BlockingQueuedConnection);
                     //等待到位
                     waitInPos(QPointF(standard_4_x, standard_4_y + 3));
+                    LogCalibrationMove("standard4-run2", QPointF(standard_4_x, standard_4_y + 3), QPointF(standard_4_x - dx, standard_4_y - dy), standard_thickness_4);
                     //测量一小段位置
                     QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                         {
                             m_pMotionController->moveMultiAxisLinear(standard_4_x-dx, standard_4_y - dy, 2.0, 40.0, 40.0);
                         }, Qt::BlockingQueuedConnection);
-                    relTotalSecondTime = 0.0;
-                    m_dataBuffer.clear();
-                    for (int n = 0; n < 30; ++n) {
-                        relTotalSecondTime += filterValue(m_current_distance_top + m_current_distance_bottom + standard_thickness_4);
-                        QThread::msleep(100);
-                    }
-                    relTotalSecondTime = relTotalSecondTime / 30 + m_standardCompensationValue;
+                    relTotalSecondTime = CollectCalibrationTotal("standard4-run2", standard_thickness_4);
                     //更新配置数据及显示
                     m_mapCalibrationInfo[1550] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_4, relTotalSecondTime };
                     QMetaObject::invokeMethod(this, [&]()
@@ -1190,18 +1175,13 @@ void MainWindow::on_pushButton_calibration_clicked()
                         }, Qt::BlockingQueuedConnection);
                     //等待到位
                     waitInPos(QPointF(standard_4_x, standard_4_y + 3));
+                    LogCalibrationMove("standard4-run3", QPointF(standard_4_x, standard_4_y + 3), QPointF(standard_4_x - dx, standard_4_y - dy), standard_thickness_4);
                     //测量一小段位置
                     QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                         {
                             m_pMotionController->moveMultiAxisLinear(standard_4_x-dx, standard_4_y - dy, 2.0, 40.0, 40.0);
                         }, Qt::BlockingQueuedConnection);
-                    realTotalThirdTime = 0.0;
-                    m_dataBuffer.clear();
-                    for (int n = 0; n < 30; ++n) {
-                        realTotalThirdTime += filterValue(m_current_distance_top + m_current_distance_bottom + standard_thickness_4);
-                        QThread::msleep(100);
-                    }
-                    realTotalThirdTime = realTotalThirdTime / 30 + m_standardCompensationValue;
+                    realTotalThirdTime = CollectCalibrationTotal("standard4-run3", standard_thickness_4);
                     //更新配置数据及显示
                     m_mapCalibrationInfo[1550] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_4, realTotalThirdTime };
                     QMetaObject::invokeMethod(this, [&]()
@@ -1796,12 +1776,6 @@ void MainWindow::on_pushButton_loading_clicked()
         return;
     }
 
-    if(!m_bCheckResult)
-    {
-        QMessageBox::warning(this, u8"提示", QString(u8"加密模块验证失败！"));
-        return;
-    }
-
     if(!CheckSystemStateReady()){
         return;
     }
@@ -1841,12 +1815,6 @@ void MainWindow::on_pushButton_readID_clicked()
         return;
     }
   
-    if(!m_bCheckResult)
-    {
-        QMessageBox::warning(this, u8"提示", QString(u8"加密模块验证失败！"));
-        return;
-    }
-
     if(!CheckSystemStateReady()){
         return;
     }
@@ -1918,14 +1886,6 @@ void MainWindow::on_pushButton_measure_start_clicked()
     if(!m_bIsInitFinished_xy)
     {
         QMessageBox::warning(this, u8"提示", QString(u8"请先点击初始化按钮进行初始化！"));
-        m_currentSystemState = SystemState::Ready;
-        SetControlStyle();
-        return;
-    }
-
-    if(!m_bCheckResult)
-    {
-        QMessageBox::warning(this, u8"提示", QString(u8"加密模块验证失败！"));
         m_currentSystemState = SystemState::Ready;
         SetControlStyle();
         return;
@@ -2866,12 +2826,6 @@ void MainWindow::on_pushButton_measure_stop_clicked()
         return;
     }
 
-    if(!m_bCheckResult)
-    {
-        QMessageBox::warning(this, u8"提示", QString(u8"加密模块验证失败！"));
-        return;
-    }
-
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(this, u8"测量", u8"确认停止测量？", QMessageBox::Yes | QMessageBox::No);
     if (reply != QMessageBox::Yes) {
@@ -3210,6 +3164,108 @@ void MainWindow::waitInPos_z(double dstPosition)
     while (3 != m_axisState.state_z) {
         QThread::msleep(100);
     }
+}
+
+void MainWindow::LogCalibrationMove(const QString& tag, const QPointF& waitTarget, const QPointF& scanTarget, double standardThickness)
+{
+    emit s_writeLog(QString("[CAL-DIAG] %1 waitTarget=(%2,%3) scanTarget=(%4,%5) axis=(%6,%7,%8) state=(%9,%10,%11) top=%12 bottom=%13 std=%14 comp=%15")
+        .arg(tag)
+        .arg(waitTarget.x(), 0, 'f', 3)
+        .arg(waitTarget.y(), 0, 'f', 3)
+        .arg(scanTarget.x(), 0, 'f', 3)
+        .arg(scanTarget.y(), 0, 'f', 3)
+        .arg(m_axisPos.pos_x, 0, 'f', 3)
+        .arg(m_axisPos.pos_y, 0, 'f', 3)
+        .arg(m_axisPos.pos_z, 0, 'f', 3)
+        .arg(m_axisState.state_x)
+        .arg(m_axisState.state_y)
+        .arg(m_axisState.state_z)
+        .arg(m_current_distance_top, 0, 'f', 3)
+        .arg(m_current_distance_bottom, 0, 'f', 3)
+        .arg(standardThickness, 0, 'f', 3)
+        .arg(m_standardCompensationValue, 0, 'f', 3));
+}
+
+double MainWindow::CollectCalibrationTotal(const QString& tag, double standardThickness)
+{
+    double total = 0.0;
+    m_dataBuffer.clear();
+
+    for (int n = 0; n < 30; ++n) {
+        const double top = m_current_distance_top;
+        const double bottom = m_current_distance_bottom;
+        const double rawTotal = top + bottom + standardThickness;
+        const double filteredTotal = filterValue(rawTotal);
+        total += filteredTotal;
+
+        if (n == 0 || n == 14 || n == 29) {
+            bool topDirectOk = false;
+            bool bottomDirectOk = false;
+            const double topDirect = ReadColorFocusDistanceSync(m_pColorFocusControl_top, QString("%1-top").arg(tag), &topDirectOk);
+            const double bottomDirect = ReadColorFocusDistanceSync(m_pColorFocusControl_bottom, QString("%1-bottom").arg(tag), &bottomDirectOk);
+
+            emit s_writeLog(QString("[CAL-DIAG] %1 sample=%2 top=%3 bottom=%4 raw=%5 filtered=%6 directTop=%7 directBottom=%8 directOk=(%9,%10) axis=(%11,%12,%13) state=(%14,%15,%16)")
+                .arg(tag)
+                .arg(n + 1)
+                .arg(top, 0, 'f', 3)
+                .arg(bottom, 0, 'f', 3)
+                .arg(rawTotal, 0, 'f', 3)
+                .arg(filteredTotal, 0, 'f', 3)
+                .arg(topDirect, 0, 'f', 3)
+                .arg(bottomDirect, 0, 'f', 3)
+                .arg(topDirectOk ? 1 : 0)
+                .arg(bottomDirectOk ? 1 : 0)
+                .arg(m_axisPos.pos_x, 0, 'f', 3)
+                .arg(m_axisPos.pos_y, 0, 'f', 3)
+                .arg(m_axisPos.pos_z, 0, 'f', 3)
+                .arg(m_axisState.state_x)
+                .arg(m_axisState.state_y)
+                .arg(m_axisState.state_z));
+        }
+
+        QThread::msleep(100);
+    }
+
+    const double finalTotal = total / 30 + m_standardCompensationValue;
+    emit s_writeLog(QString("[CAL-DIAG] %1 result avg=%2 comp=%3 total=%4 topLast=%5 bottomLast=%6 axis=(%7,%8,%9) state=(%10,%11,%12)")
+        .arg(tag)
+        .arg(total / 30, 0, 'f', 3)
+        .arg(m_standardCompensationValue, 0, 'f', 3)
+        .arg(finalTotal, 0, 'f', 3)
+        .arg(m_current_distance_top, 0, 'f', 3)
+        .arg(m_current_distance_bottom, 0, 'f', 3)
+        .arg(m_axisPos.pos_x, 0, 'f', 3)
+        .arg(m_axisPos.pos_y, 0, 'f', 3)
+        .arg(m_axisPos.pos_z, 0, 'f', 3)
+        .arg(m_axisState.state_x)
+        .arg(m_axisState.state_y)
+        .arg(m_axisState.state_z));
+
+    return finalTotal;
+}
+
+double MainWindow::ReadColorFocusDistanceSync(const QSharedPointer<ColorFocusControl>& control, const QString& tag, bool* ok)
+{
+    if (ok) {
+        *ok = false;
+    }
+    if (control.isNull()) {
+        emit s_writeLog(QString("[CAL-DIAG] %1 direct read skipped: control is null").arg(tag));
+        return 0.0;
+    }
+
+    double distance = 0.0;
+    const bool invoked = QMetaObject::invokeMethod(control.data(), [&]() {
+        distance = control->GetCurrentDistance();
+    }, Qt::BlockingQueuedConnection);
+
+    if (ok) {
+        *ok = invoked;
+    }
+    if (!invoked) {
+        emit s_writeLog(QString("[CAL-DIAG] %1 direct read failed: invokeMethod returned false").arg(tag));
+    }
+    return distance;
 }
 
 void MainWindow::JudgeAxisPresetPosition()

@@ -52,8 +52,8 @@ public:
     Q_INVOKABLE bool StartAcquisition(int triggerMode, int pollIntervalMs = 100);
     Q_INVOKABLE bool StopAcquisition();
     bool StartAcquisition(TriggerMode triggerMode) { return StartAcquisition(static_cast<int>(triggerMode)); }
-    bool StartAcquisition_CCS(TriggerMode triggerMode) { return StartAcquisition(triggerMode); }
-    bool StopAcquisition_CCS() { return StopAcquisition(); }
+    bool StartAcquisition_CCS(TriggerMode triggerMode);
+    bool StopAcquisition_CCS();
     Q_INVOKABLE bool ClearDataStack();
     Q_INVOKABLE bool InitAcquisitionEvent(int bufferLength);
     Q_INVOKABLE bool ReadDistanceBuffer(int readNum, int triggerAxis = 0);
