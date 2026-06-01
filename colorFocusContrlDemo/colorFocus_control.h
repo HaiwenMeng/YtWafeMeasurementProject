@@ -6,6 +6,8 @@
 #include <QMap>
 #include <QTimer>
 #include <QVector>
+#include <atomic>
+#include <thread>
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -143,6 +145,7 @@ public:
     bool GetHardwareVersion(DWORD *value);
 
     double GetCurrentDistance();
+    bool GetLatestSample(float *distance, float *intensity) const;
     INT32 ChangeToEncoderValue(float position) const;
     float ChangeToPositionValue(INT32 encoder) const;
     const QList<_DISTANCE_VALUE> &distanceValues() const;
@@ -174,6 +177,7 @@ private slots:
     void PollCurrentSample();
 
 private:
+    void RunDataRead();
     bool ensureConnected(const QString &action);
     bool reportSdkFailure(const QString &action);
     void reportLog(const QString &message);
@@ -187,6 +191,11 @@ private:
     bool m_acquiring;
     QString m_lastErrorMessage;
     QTimer *m_pollTimer;
+    std::atomic_bool m_readThreadRunning;
+    std::thread m_dataReadThread;
+    std::atomic_bool m_hasLatestSample;
+    std::atomic<float> m_latestDistance;
+    std::atomic<float> m_latestIntensity;
     HANDLE m_endAcqEvent;
     int m_pollIntervalMs;
     int m_currentTriggerMode;

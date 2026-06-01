@@ -6,6 +6,7 @@
 #include "dialogmessagebox.h"
 #include "PermissionManager/currentuser.h"
 // #include "PermissionManager/permissionmanager.h"
+#include <limits>
 
 using namespace QXlsx;
 
@@ -699,7 +700,6 @@ void MainWindow::on_pushButton_calibration_clicked()
                     .arg(settings.standardTotalVal3)
                     .arg(settings.standardTotalVal4)
                     .arg(settings.CalibrationDirectionOfX));
-
                 m_bIsCalibrating = true;
 
                 double dx = 3;
@@ -721,7 +721,7 @@ void MainWindow::on_pushButton_calibration_clicked()
                             , settings.velocityNormal.toDouble()
                             , settings.velocityNormal.toDouble() * 10
                             , settings.velocityNormal.toDouble() * 10);
-                    }, Qt::BlockingQueuedConnection);
+                }, Qt::BlockingQueuedConnection);
                 //等待到位
                 waitInPos(QPointF(standard_1_x + dx, standard_1_y + dy));
                 LogCalibrationMove("standard1", QPointF(standard_1_x + dx, standard_1_y + dy), QPointF(standard_1_x - dx, standard_1_y - dy), standard_thickness_1);
@@ -729,8 +729,20 @@ void MainWindow::on_pushButton_calibration_clicked()
                 QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                     {
                         m_pMotionController->moveMultiAxisLinear(standard_1_x - dx, standard_1_y - dy, 2.0, 40.0, 40.0);
-                    }, Qt::BlockingQueuedConnection);
+                }, Qt::BlockingQueuedConnection);
                 double realTotal_1 = CollectCalibrationTotal("standard1", standard_thickness_1);
+                if (!std::isfinite(realTotal_1)) {
+                    AbortCalibration(u8"共聚焦校准采样失败，请检查共聚焦采集状态！");
+                    return;
+                }
+                waitInPos(QPointF(standard_1_x - dx, standard_1_y - dy));
+                emit s_writeLog(QString("[CAL-DIAG] standard1 scanEnd axis=(%1,%2,%3) state=(%4,%5,%6)")
+                    .arg(m_axisPos.pos_x, 0, 'f', 3)
+                    .arg(m_axisPos.pos_y, 0, 'f', 3)
+                    .arg(m_axisPos.pos_z, 0, 'f', 3)
+                    .arg(m_axisState.state_x)
+                    .arg(m_axisState.state_y)
+                    .arg(m_axisState.state_z));
                 //更新配置数据及显示
                 m_mapCalibrationInfo[500] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_1, realTotal_1 };
                 QMetaObject::invokeMethod(this, [&]()
@@ -748,7 +760,7 @@ void MainWindow::on_pushButton_calibration_clicked()
                             , settings.velocityNormal.toDouble()
                             , settings.velocityNormal.toDouble() * 10
                             , settings.velocityNormal.toDouble() * 10);
-                    }, Qt::BlockingQueuedConnection);
+                }, Qt::BlockingQueuedConnection);
                 //等待到位
                 waitInPos(QPointF(standard_2_x + dx, standard_2_y + dy));
                 LogCalibrationMove("standard2", QPointF(standard_2_x + dx, standard_2_y + dy), QPointF(standard_2_x - dx, standard_2_y - dy), standard_thickness_2);
@@ -756,8 +768,20 @@ void MainWindow::on_pushButton_calibration_clicked()
                 QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                     {
                         m_pMotionController->moveMultiAxisLinear(standard_2_x - dx, standard_2_y - dy, 2.0, 40.0, 40.0);
-                    }, Qt::BlockingQueuedConnection);
+                }, Qt::BlockingQueuedConnection);
                 double realTotal_2 = CollectCalibrationTotal("standard2", standard_thickness_2);
+                if (!std::isfinite(realTotal_2)) {
+                    AbortCalibration(u8"共聚焦校准采样失败，请检查共聚焦采集状态！");
+                    return;
+                }
+                waitInPos(QPointF(standard_2_x - dx, standard_2_y - dy));
+                emit s_writeLog(QString("[CAL-DIAG] standard2 scanEnd axis=(%1,%2,%3) state=(%4,%5,%6)")
+                    .arg(m_axisPos.pos_x, 0, 'f', 3)
+                    .arg(m_axisPos.pos_y, 0, 'f', 3)
+                    .arg(m_axisPos.pos_z, 0, 'f', 3)
+                    .arg(m_axisState.state_x)
+                    .arg(m_axisState.state_y)
+                    .arg(m_axisState.state_z));
                 //更新配置数据及显示
                 m_mapCalibrationInfo[725] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_2, realTotal_2 };
                 QMetaObject::invokeMethod(this, [&]()
@@ -774,7 +798,7 @@ void MainWindow::on_pushButton_calibration_clicked()
                             , settings.velocityNormal.toDouble()
                             , settings.velocityNormal.toDouble() * 10
                             , settings.velocityNormal.toDouble() * 10);
-                    }, Qt::BlockingQueuedConnection);
+                }, Qt::BlockingQueuedConnection);
                 //等待到位
                 waitInPos(QPointF(standard_3_x + dx, standard_3_y + dy));
                 LogCalibrationMove("standard3", QPointF(standard_3_x + dx, standard_3_y + dy), QPointF(standard_3_x - dx, standard_3_y - dy), standard_thickness_3);
@@ -782,8 +806,20 @@ void MainWindow::on_pushButton_calibration_clicked()
                 QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                     {
                         m_pMotionController->moveMultiAxisLinear(standard_3_x - dx, standard_3_y - dy, 2.0, 40.0, 40.0);
-                    }, Qt::BlockingQueuedConnection);
+                }, Qt::BlockingQueuedConnection);
                 double realTotal_3 = CollectCalibrationTotal("standard3", standard_thickness_3);
+                if (!std::isfinite(realTotal_3)) {
+                    AbortCalibration(u8"共聚焦校准采样失败，请检查共聚焦采集状态！");
+                    return;
+                }
+                waitInPos(QPointF(standard_3_x - dx, standard_3_y - dy));
+                emit s_writeLog(QString("[CAL-DIAG] standard3 scanEnd axis=(%1,%2,%3) state=(%4,%5,%6)")
+                    .arg(m_axisPos.pos_x, 0, 'f', 3)
+                    .arg(m_axisPos.pos_y, 0, 'f', 3)
+                    .arg(m_axisPos.pos_z, 0, 'f', 3)
+                    .arg(m_axisState.state_x)
+                    .arg(m_axisState.state_y)
+                    .arg(m_axisState.state_z));
                 //更新配置数据及显示
                 m_mapCalibrationInfo[800] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_3, realTotal_3 };
                 QMetaObject::invokeMethod(this, [&]()
@@ -801,7 +837,7 @@ void MainWindow::on_pushButton_calibration_clicked()
                             , settings.velocityNormal.toDouble()
                             , settings.velocityNormal.toDouble() * 10
                             , settings.velocityNormal.toDouble() * 10);
-                    }, Qt::BlockingQueuedConnection);
+                }, Qt::BlockingQueuedConnection);
                 //等待到位
                 waitInPos(QPointF(standard_4_x + dx, standard_4_y + dy));
                 LogCalibrationMove("standard4", QPointF(standard_4_x + dx, standard_4_y + dy), QPointF(standard_4_x - dx, standard_4_y - dy), standard_thickness_4);
@@ -809,8 +845,20 @@ void MainWindow::on_pushButton_calibration_clicked()
                 QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                     {
                         m_pMotionController->moveMultiAxisLinear(standard_4_x - dx, standard_4_y - dy, 2.0, 40.0, 40.0);
-                    }, Qt::BlockingQueuedConnection);
+                }, Qt::BlockingQueuedConnection);
                 double realTotal_4 = CollectCalibrationTotal("standard4", standard_thickness_4);
+                if (!std::isfinite(realTotal_4)) {
+                    AbortCalibration(u8"共聚焦校准采样失败，请检查共聚焦采集状态！");
+                    return;
+                }
+                waitInPos(QPointF(standard_4_x - dx, standard_4_y - dy));
+                emit s_writeLog(QString("[CAL-DIAG] standard4 scanEnd axis=(%1,%2,%3) state=(%4,%5,%6)")
+                    .arg(m_axisPos.pos_x, 0, 'f', 3)
+                    .arg(m_axisPos.pos_y, 0, 'f', 3)
+                    .arg(m_axisPos.pos_z, 0, 'f', 3)
+                    .arg(m_axisState.state_x)
+                    .arg(m_axisState.state_y)
+                    .arg(m_axisState.state_z));
                 //更新配置数据及显示
                 m_mapCalibrationInfo[1550] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_4, realTotal_4 };
                 QMetaObject::invokeMethod(this, [&]()
@@ -922,7 +970,6 @@ void MainWindow::on_pushButton_calibration_clicked()
                         .arg(settings.standardTotalVal2)
                         .arg(settings.standardTotalVal3)
                         .arg(settings.CalibrationDirectionOfX));
-
                     m_bIsCalibrating = true;
 
                     double dx = 3;
@@ -944,7 +991,7 @@ void MainWindow::on_pushButton_calibration_clicked()
                                 , settings.velocityNormal.toDouble()
                                 , settings.velocityNormal.toDouble() * 10
                                 , settings.velocityNormal.toDouble() * 10);
-                        }, Qt::BlockingQueuedConnection);
+                    }, Qt::BlockingQueuedConnection);
                     //等待到位
                     waitInPos(QPointF(standard_1_x + dx, standard_1_y + dy));
                     LogCalibrationMove("standard1", QPointF(standard_1_x + dx, standard_1_y + dy), QPointF(standard_1_x - dx, standard_1_y - dy), standard_thickness_1);
@@ -952,8 +999,20 @@ void MainWindow::on_pushButton_calibration_clicked()
                     QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                         {
                             m_pMotionController->moveMultiAxisLinear(standard_1_x - dx, standard_1_y - dy, 2.0, 40.0, 40.0);
-                        }, Qt::BlockingQueuedConnection);
+                    }, Qt::BlockingQueuedConnection);
                     double realTotal_1 = CollectCalibrationTotal("standard1", standard_thickness_1);
+                    if (!std::isfinite(realTotal_1)) {
+                        AbortCalibration(u8"共聚焦校准采样失败，请检查共聚焦采集状态！");
+                        return;
+                    }
+                    waitInPos(QPointF(standard_1_x - dx, standard_1_y - dy));
+                    emit s_writeLog(QString("[CAL-DIAG] standard1 scanEnd axis=(%1,%2,%3) state=(%4,%5,%6)")
+                        .arg(m_axisPos.pos_x, 0, 'f', 3)
+                        .arg(m_axisPos.pos_y, 0, 'f', 3)
+                        .arg(m_axisPos.pos_z, 0, 'f', 3)
+                        .arg(m_axisState.state_x)
+                        .arg(m_axisState.state_y)
+                        .arg(m_axisState.state_z));
                     //更新配置数据及显示
                     m_mapCalibrationInfo[500] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_1, realTotal_1 };
                     QMetaObject::invokeMethod(this, [&]()
@@ -971,7 +1030,7 @@ void MainWindow::on_pushButton_calibration_clicked()
                                 , settings.velocityNormal.toDouble()
                                 , settings.velocityNormal.toDouble() * 10
                                 , settings.velocityNormal.toDouble() * 10);
-                        }, Qt::BlockingQueuedConnection);
+                    }, Qt::BlockingQueuedConnection);
                     //等待到位
                     waitInPos(QPointF(standard_2_x + dx, standard_2_y + dy));
                     LogCalibrationMove("standard2", QPointF(standard_2_x + dx, standard_2_y + dy), QPointF(standard_2_x - dx, standard_2_y - dy), standard_thickness_2);
@@ -979,8 +1038,20 @@ void MainWindow::on_pushButton_calibration_clicked()
                     QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                         {
                             m_pMotionController->moveMultiAxisLinear(standard_2_x - dx, standard_2_y - dy, 2.0, 40.0, 40.0);
-                        }, Qt::BlockingQueuedConnection);
+                    }, Qt::BlockingQueuedConnection);
                     double realTotal_2 = CollectCalibrationTotal("standard2", standard_thickness_2);
+                    if (!std::isfinite(realTotal_2)) {
+                        AbortCalibration(u8"共聚焦校准采样失败，请检查共聚焦采集状态！");
+                        return;
+                    }
+                    waitInPos(QPointF(standard_2_x - dx, standard_2_y - dy));
+                    emit s_writeLog(QString("[CAL-DIAG] standard2 scanEnd axis=(%1,%2,%3) state=(%4,%5,%6)")
+                        .arg(m_axisPos.pos_x, 0, 'f', 3)
+                        .arg(m_axisPos.pos_y, 0, 'f', 3)
+                        .arg(m_axisPos.pos_z, 0, 'f', 3)
+                        .arg(m_axisState.state_x)
+                        .arg(m_axisState.state_y)
+                        .arg(m_axisState.state_z));
                     //更新配置数据及显示
                     m_mapCalibrationInfo[725] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_2, realTotal_2 };
                     QMetaObject::invokeMethod(this, [&]()
@@ -997,7 +1068,7 @@ void MainWindow::on_pushButton_calibration_clicked()
                                 , settings.velocityNormal.toDouble()
                                 , settings.velocityNormal.toDouble() * 10
                                 , settings.velocityNormal.toDouble() * 10);
-                        }, Qt::BlockingQueuedConnection);
+                    }, Qt::BlockingQueuedConnection);
                     //等待到位
                     waitInPos(QPointF(standard_3_x + dx, standard_3_y + dy));
                     LogCalibrationMove("standard3", QPointF(standard_3_x + dx, standard_3_y + dy), QPointF(standard_3_x - dx, standard_3_y - dy), standard_thickness_3);
@@ -1005,8 +1076,20 @@ void MainWindow::on_pushButton_calibration_clicked()
                     QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                         {
                             m_pMotionController->moveMultiAxisLinear(standard_3_x - dx, standard_3_y - dy, 2.0, 40.0, 40.0);
-                        }, Qt::BlockingQueuedConnection);
+                    }, Qt::BlockingQueuedConnection);
                     double realTotal_3 = CollectCalibrationTotal("standard3", standard_thickness_3);
+                    if (!std::isfinite(realTotal_3)) {
+                        AbortCalibration(u8"共聚焦校准采样失败，请检查共聚焦采集状态！");
+                        return;
+                    }
+                    waitInPos(QPointF(standard_3_x - dx, standard_3_y - dy));
+                    emit s_writeLog(QString("[CAL-DIAG] standard3 scanEnd axis=(%1,%2,%3) state=(%4,%5,%6)")
+                        .arg(m_axisPos.pos_x, 0, 'f', 3)
+                        .arg(m_axisPos.pos_y, 0, 'f', 3)
+                        .arg(m_axisPos.pos_z, 0, 'f', 3)
+                        .arg(m_axisState.state_x)
+                        .arg(m_axisState.state_y)
+                        .arg(m_axisState.state_z));
                     //更新配置数据及显示
                     m_mapCalibrationInfo[800] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_3, realTotal_3 };
                     QMetaObject::invokeMethod(this, [&]()
@@ -1096,7 +1179,6 @@ void MainWindow::on_pushButton_calibration_clicked()
                         .arg(standard_thickness_4, 0, 'f', 3)
                         .arg(settings.standardTotalVal4)
                         .arg(settings.CalibrationDirectionOfX));
-
                     m_bIsCalibrating = true;
 
 
@@ -1120,7 +1202,7 @@ void MainWindow::on_pushButton_calibration_clicked()
                                 , settings.velocityNormal.toDouble()
                                 , settings.velocityNormal.toDouble() * 10
                                 , settings.velocityNormal.toDouble() * 10);
-                        }, Qt::BlockingQueuedConnection);
+                    }, Qt::BlockingQueuedConnection);
                     //等待到位
                     waitInPos(QPointF(standard_4_x, standard_4_y + 3));
                     LogCalibrationMove("standard4-run1", QPointF(standard_4_x, standard_4_y + 3), QPointF(standard_4_x - dx, standard_4_y - dy), standard_thickness_4);
@@ -1128,8 +1210,20 @@ void MainWindow::on_pushButton_calibration_clicked()
                     QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                         {
                             m_pMotionController->moveMultiAxisLinear(standard_4_x-dx, standard_4_y - dy, 2.0, 40.0, 40.0);
-                        }, Qt::BlockingQueuedConnection);
+                    }, Qt::BlockingQueuedConnection);
                     realTotalFirstTime = CollectCalibrationTotal("standard4-run1", standard_thickness_4);
+                    if (!std::isfinite(realTotalFirstTime)) {
+                        AbortCalibration(u8"共聚焦校准采样失败，请检查共聚焦采集状态！");
+                        return;
+                    }
+                    waitInPos(QPointF(standard_4_x - dx, standard_4_y - dy));
+                    emit s_writeLog(QString("[CAL-DIAG] standard4-run1 scanEnd axis=(%1,%2,%3) state=(%4,%5,%6)")
+                        .arg(m_axisPos.pos_x, 0, 'f', 3)
+                        .arg(m_axisPos.pos_y, 0, 'f', 3)
+                        .arg(m_axisPos.pos_z, 0, 'f', 3)
+                        .arg(m_axisState.state_x)
+                        .arg(m_axisState.state_y)
+                        .arg(m_axisState.state_z));
                     //更新配置数据及显示
                     m_mapCalibrationInfo[1550] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_4, realTotalFirstTime };
                     QMetaObject::invokeMethod(this, [&]()
@@ -1146,7 +1240,7 @@ void MainWindow::on_pushButton_calibration_clicked()
                                 , settings.velocityNormal.toDouble()
                                 , settings.velocityNormal.toDouble() * 10
                                 , settings.velocityNormal.toDouble() * 10);
-                        }, Qt::BlockingQueuedConnection);
+                    }, Qt::BlockingQueuedConnection);
                     //等待到位
                     waitInPos(QPointF(standard_4_x, standard_4_y + 3));
                     LogCalibrationMove("standard4-run2", QPointF(standard_4_x, standard_4_y + 3), QPointF(standard_4_x - dx, standard_4_y - dy), standard_thickness_4);
@@ -1154,8 +1248,20 @@ void MainWindow::on_pushButton_calibration_clicked()
                     QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                         {
                             m_pMotionController->moveMultiAxisLinear(standard_4_x-dx, standard_4_y - dy, 2.0, 40.0, 40.0);
-                        }, Qt::BlockingQueuedConnection);
+                    }, Qt::BlockingQueuedConnection);
                     relTotalSecondTime = CollectCalibrationTotal("standard4-run2", standard_thickness_4);
+                    if (!std::isfinite(relTotalSecondTime)) {
+                        AbortCalibration(u8"共聚焦校准采样失败，请检查共聚焦采集状态！");
+                        return;
+                    }
+                    waitInPos(QPointF(standard_4_x - dx, standard_4_y - dy));
+                    emit s_writeLog(QString("[CAL-DIAG] standard4-run2 scanEnd axis=(%1,%2,%3) state=(%4,%5,%6)")
+                        .arg(m_axisPos.pos_x, 0, 'f', 3)
+                        .arg(m_axisPos.pos_y, 0, 'f', 3)
+                        .arg(m_axisPos.pos_z, 0, 'f', 3)
+                        .arg(m_axisState.state_x)
+                        .arg(m_axisState.state_y)
+                        .arg(m_axisState.state_z));
                     //更新配置数据及显示
                     m_mapCalibrationInfo[1550] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_4, relTotalSecondTime };
                     QMetaObject::invokeMethod(this, [&]()
@@ -1172,7 +1278,7 @@ void MainWindow::on_pushButton_calibration_clicked()
                                 , settings.velocityNormal.toDouble()
                                 , settings.velocityNormal.toDouble() * 10
                                 , settings.velocityNormal.toDouble() * 10);
-                        }, Qt::BlockingQueuedConnection);
+                    }, Qt::BlockingQueuedConnection);
                     //等待到位
                     waitInPos(QPointF(standard_4_x, standard_4_y + 3));
                     LogCalibrationMove("standard4-run3", QPointF(standard_4_x, standard_4_y + 3), QPointF(standard_4_x - dx, standard_4_y - dy), standard_thickness_4);
@@ -1180,8 +1286,20 @@ void MainWindow::on_pushButton_calibration_clicked()
                     QMetaObject::invokeMethod(m_pMotionController.data(), [&]()
                         {
                             m_pMotionController->moveMultiAxisLinear(standard_4_x-dx, standard_4_y - dy, 2.0, 40.0, 40.0);
-                        }, Qt::BlockingQueuedConnection);
+                    }, Qt::BlockingQueuedConnection);
                     realTotalThirdTime = CollectCalibrationTotal("standard4-run3", standard_thickness_4);
+                    if (!std::isfinite(realTotalThirdTime)) {
+                        AbortCalibration(u8"共聚焦校准采样失败，请检查共聚焦采集状态！");
+                        return;
+                    }
+                    waitInPos(QPointF(standard_4_x - dx, standard_4_y - dy));
+                    emit s_writeLog(QString("[CAL-DIAG] standard4-run3 scanEnd axis=(%1,%2,%3) state=(%4,%5,%6)")
+                        .arg(m_axisPos.pos_x, 0, 'f', 3)
+                        .arg(m_axisPos.pos_y, 0, 'f', 3)
+                        .arg(m_axisPos.pos_z, 0, 'f', 3)
+                        .arg(m_axisState.state_x)
+                        .arg(m_axisState.state_y)
+                        .arg(m_axisState.state_z));
                     //更新配置数据及显示
                     m_mapCalibrationInfo[1550] = CalibrationInfo{ m_current_distance_top, m_current_distance_bottom, standard_thickness_4, realTotalThirdTime };
                     QMetaObject::invokeMethod(this, [&]()
@@ -3166,9 +3284,74 @@ void MainWindow::waitInPos_z(double dstPosition)
     }
 }
 
+bool MainWindow::ReadLatestColorFocusDistances(double& top, double& bottom, const QString& tag)
+{
+    float topDistance = 0.0f;
+    float topIntensity = 0.0f;
+    float bottomDistance = 0.0f;
+    float bottomIntensity = 0.0f;
+
+    const bool topOk = !m_pColorFocusControl_top.isNull()
+        && m_pColorFocusControl_top->GetLatestSample(&topDistance, &topIntensity);
+    const bool bottomOk = !m_pColorFocusControl_bottom.isNull()
+        && m_pColorFocusControl_bottom->GetLatestSample(&bottomDistance, &bottomIntensity);
+
+    if (!topOk || !bottomOk) {
+        emit s_writeLog(QString("[CAL-DIAG] %1 latest color focus sample invalid topOk=%2 bottomOk=%3")
+            .arg(tag)
+            .arg(topOk ? 1 : 0)
+            .arg(bottomOk ? 1 : 0));
+        return false;
+    }
+
+    top = topDistance > 0.0f ? topDistance : 0.0;
+    bottom = bottomDistance > 0.0f ? bottomDistance : 0.0;
+    return true;
+}
+
+void MainWindow::AbortCalibration(const QString& message)
+{
+    emit s_writeLog(message);
+    m_bIsCalibrating = false;
+    m_currentSystemState = SystemState::Ready;
+
+    auto showMessage = [=]() {
+        QMessageBox::warning(this, u8"校准", message);
+        m_spinner->stop();
+        SetControlStyle();
+    };
+
+    if (QThread::currentThread() == thread()) {
+        showMessage();
+    }
+    else {
+        QMetaObject::invokeMethod(this, showMessage, Qt::BlockingQueuedConnection);
+    }
+}
+
 void MainWindow::LogCalibrationMove(const QString& tag, const QPointF& waitTarget, const QPointF& scanTarget, double standardThickness)
 {
-    emit s_writeLog(QString("[CAL-DIAG] %1 waitTarget=(%2,%3) scanTarget=(%4,%5) axis=(%6,%7,%8) state=(%9,%10,%11) top=%12 bottom=%13 std=%14 comp=%15")
+    const ParamSettings& settings = m_dialogSetting.getSettings();
+    double cfgTotal = 0.0;
+    if (tag.contains("standard1")) {
+        cfgTotal = settings.standardTotalVal1.toDouble();
+    }
+    else if (tag.contains("standard2")) {
+        cfgTotal = settings.standardTotalVal2.toDouble();
+    }
+    else if (tag.contains("standard3")) {
+        cfgTotal = settings.standardTotalVal3.toDouble();
+    }
+    else if (tag.contains("standard4")) {
+        cfgTotal = settings.standardTotalVal4.toDouble();
+    }
+    double top = m_current_distance_top;
+    double bottom = m_current_distance_bottom;
+    const bool latestOk = ReadLatestColorFocusDistances(top, bottom, tag);
+    const double actualTopBottom = top + bottom;
+    const double expectedTopBottom = cfgTotal > 0.0 ? cfgTotal - standardThickness : 0.0;
+
+    emit s_writeLog(QString("[CAL-DIAG] %1 waitTarget=(%2,%3) scanTarget=(%4,%5) axis=(%6,%7,%8) state=(%9,%10,%11) top=%12 bottom=%13 std=%14 comp=%15 source=%16")
         .arg(tag)
         .arg(waitTarget.x(), 0, 'f', 3)
         .arg(waitTarget.y(), 0, 'f', 3)
@@ -3180,10 +3363,17 @@ void MainWindow::LogCalibrationMove(const QString& tag, const QPointF& waitTarge
         .arg(m_axisState.state_x)
         .arg(m_axisState.state_y)
         .arg(m_axisState.state_z)
-        .arg(m_current_distance_top, 0, 'f', 3)
-        .arg(m_current_distance_bottom, 0, 'f', 3)
+        .arg(top, 0, 'f', 3)
+        .arg(bottom, 0, 'f', 3)
         .arg(standardThickness, 0, 'f', 3)
-        .arg(m_standardCompensationValue, 0, 'f', 3));
+        .arg(m_standardCompensationValue, 0, 'f', 3)
+        .arg(latestOk ? "latest" : "ui"));
+    emit s_writeLog(QString("[CAL-DIAG] %1 sum-check actualTopBottom=%2 expectedTopBottom=%3 delta=%4 cfgTotal=%5")
+        .arg(tag)
+        .arg(actualTopBottom, 0, 'f', 3)
+        .arg(expectedTopBottom, 0, 'f', 3)
+        .arg(actualTopBottom - expectedTopBottom, 0, 'f', 3)
+        .arg(cfgTotal, 0, 'f', 3));
 }
 
 double MainWindow::CollectCalibrationTotal(const QString& tag, double standardThickness)
@@ -3192,29 +3382,23 @@ double MainWindow::CollectCalibrationTotal(const QString& tag, double standardTh
     m_dataBuffer.clear();
 
     for (int n = 0; n < 30; ++n) {
-        const double top = m_current_distance_top;
-        const double bottom = m_current_distance_bottom;
+        double top = 0.0;
+        double bottom = 0.0;
+        if (!ReadLatestColorFocusDistances(top, bottom, tag)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         const double rawTotal = top + bottom + standardThickness;
         const double filteredTotal = filterValue(rawTotal);
         total += filteredTotal;
 
         if (n == 0 || n == 14 || n == 29) {
-            bool topDirectOk = false;
-            bool bottomDirectOk = false;
-            const double topDirect = ReadColorFocusDistanceSync(m_pColorFocusControl_top, QString("%1-top").arg(tag), &topDirectOk);
-            const double bottomDirect = ReadColorFocusDistanceSync(m_pColorFocusControl_bottom, QString("%1-bottom").arg(tag), &bottomDirectOk);
-
-            emit s_writeLog(QString("[CAL-DIAG] %1 sample=%2 top=%3 bottom=%4 raw=%5 filtered=%6 directTop=%7 directBottom=%8 directOk=(%9,%10) axis=(%11,%12,%13) state=(%14,%15,%16)")
+            emit s_writeLog(QString("[CAL-DIAG] %1 sample=%2 top=%3 bottom=%4 raw=%5 filtered=%6 axis=(%7,%8,%9) state=(%10,%11,%12)")
                 .arg(tag)
                 .arg(n + 1)
                 .arg(top, 0, 'f', 3)
                 .arg(bottom, 0, 'f', 3)
                 .arg(rawTotal, 0, 'f', 3)
                 .arg(filteredTotal, 0, 'f', 3)
-                .arg(topDirect, 0, 'f', 3)
-                .arg(bottomDirect, 0, 'f', 3)
-                .arg(topDirectOk ? 1 : 0)
-                .arg(bottomDirectOk ? 1 : 0)
                 .arg(m_axisPos.pos_x, 0, 'f', 3)
                 .arg(m_axisPos.pos_y, 0, 'f', 3)
                 .arg(m_axisPos.pos_z, 0, 'f', 3)
@@ -3898,7 +4082,7 @@ bool MainWindow::SavePaintImageToFile()
         auto pixmap = ChipSurfaceGraph->renderToImage(16);
 
         auto image = ui->widget_plot_chipheatmap->grab();
-        bool state = pixmap.save(heatImageFile) && image.save(_3dImageFile);
+        state = pixmap.save(heatImageFile) && image.save(_3dImageFile);
     }
     catch (const std::exception&)
     {

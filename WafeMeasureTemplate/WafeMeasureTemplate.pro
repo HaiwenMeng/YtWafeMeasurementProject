@@ -7,11 +7,11 @@ QMAKE_CXXFLAGS += /bigobj
 
 ROOT_DIR = $$clean_path($$PWD/..)
 SDK_DIR = $$clean_path($$ROOT_DIR/BaseLib/SDK_V3_30_x64)
-#SDK_DIR = $$clean_path($$ROOT_DIR/BaseLib/SDK_V3_40_x64)
 
 
 DEFINES += ENCODER_TRIGGER
 DEFINES += ORGANIZE_STANDARD
+DEFINES += CCS_SDK_V330
 
 INCLUDEPATH += \
     $$PWD \

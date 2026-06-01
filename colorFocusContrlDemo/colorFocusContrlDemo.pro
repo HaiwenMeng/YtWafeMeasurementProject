@@ -5,6 +5,7 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 CONFIG += c++17
 
 SDK_DIR = $$clean_path($$PWD/../BaseLib/SDK_V3_30_x64)
+DEFINES += CCS_SDK_V330
 INCLUDEPATH += $$SDK_DIR
 LIBS += -L$$SDK_DIR -lDLL_CCS
 

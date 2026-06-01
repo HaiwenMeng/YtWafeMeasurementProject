@@ -204,6 +204,8 @@ private:
     void waitInPos(QPointF dstPosition);
     void waitInPos_z(double dstPosition);
     void LogCalibrationMove(const QString& tag, const QPointF& waitTarget, const QPointF& scanTarget, double standardThickness);
+    bool ReadLatestColorFocusDistances(double& top, double& bottom, const QString& tag);
+    void AbortCalibration(const QString& message);
     double CollectCalibrationTotal(const QString& tag, double standardThickness);
     double ReadColorFocusDistanceSync(const QSharedPointer<ColorFocusControl>& control, const QString& tag, bool* ok = nullptr);
 

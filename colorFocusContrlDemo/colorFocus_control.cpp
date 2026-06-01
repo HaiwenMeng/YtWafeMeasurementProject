@@ -10,6 +10,10 @@ ColorFocusControl::ColorFocusControl(QObject *parent)
       m_connected(false),
       m_acquiring(false),
       m_pollTimer(nullptr),
+      m_readThreadRunning(false),
+      m_hasLatestSample(false),
+      m_latestDistance(0.0f),
+      m_latestIntensity(0.0f),
       m_endAcqEvent(nullptr),
       m_pollIntervalMs(100),
       m_currentTriggerMode(TriggerContinue)
@@ -95,7 +99,7 @@ bool ColorFocusControl::ConnectDevice(const QString &ipAddress)
 bool ColorFocusControl::DisconnectDevice()
 {
     bool ok = true;
-    if (m_acquiring) {
+    if (m_acquiring || m_readThreadRunning.load()) {
         ok = StopAcquisition();
     }
     closeEventHandle();
@@ -136,12 +140,9 @@ bool ColorFocusControl::StartAcquisition(int triggerMode, int pollIntervalMs)
     m_pollIntervalMs = qMax(20, pollIntervalMs);
     m_currentTriggerMode = triggerMode;
     m_acquiring = true;
-
-    if (!m_pollTimer) {
-        m_pollTimer = new QTimer(this);
-        connect(m_pollTimer, &QTimer::timeout, this, &ColorFocusControl::PollCurrentSample);
-    }
-    m_pollTimer->start(m_pollIntervalMs);
+    m_hasLatestSample.store(false);
+    m_readThreadRunning = true;
+    m_dataReadThread = std::thread(&ColorFocusControl::RunDataRead, this);
 
     emit acquisitionStateChanged(m_sensorId, true);
     reportLog(QString("Sensor %1 acquisition started").arg(m_sensorId));
@@ -154,11 +155,20 @@ bool ColorFocusControl::StopAcquisition()
         m_pollTimer->stop();
     }
 
+    const bool readThreadWasRunning = m_readThreadRunning.load();
+    const bool readThreadExists = m_dataReadThread.joinable();
+    if (readThreadWasRunning) {
+        m_readThreadRunning = false;
+    }
+    if (readThreadExists && m_dataReadThread.get_id() != std::this_thread::get_id()) {
+        m_dataReadThread.join();
+    }
+
     if (!m_acquiring) {
         return true;
     }
 
-    if (!CCS_StopAcquisition(m_sensorId)) {
+    if (!readThreadExists && !CCS_StopAcquisition(m_sensorId)) {
         return reportSdkFailure("CCS_StopAcquisition");
     }
 
@@ -200,8 +210,10 @@ bool ColorFocusControl::StopAcquisition_CCS()
     if (!CCS_StopAcquisition(m_sensorId)) {
         return reportSdkFailure("CCS_StopAcquisition");
     }
-    m_acquiring = false;
-    emit acquisitionStateChanged(m_sensorId, false);
+    m_acquiring = m_readThreadRunning.load();
+    if (!m_acquiring) {
+        emit acquisitionStateChanged(m_sensorId, false);
+    }
     reportLog(QString("Sensor %1 acquisition stopped").arg(m_sensorId));
     return true;
 }
@@ -432,8 +444,17 @@ bool ColorFocusControl::SetSmoothingFactor(int value)
 bool ColorFocusControl::SetSinglePointSmoothingFactor(int value)
 {
     if (!ensureConnected("SetSinglePointSmoothingFactor")) return false;
+#ifdef CCS_SDK_V330
+    Q_UNUSED(value);
+    m_lastErrorMessage = "SetSinglePointSmoothingFactor is not supported by DLL_CCS SDK V3.30";
+    emit errorOccurred(m_sensorId, m_lastErrorMessage);
+    emit s_sendErrorMsg(m_sensorId, m_lastErrorMessage);
+    reportLog(m_lastErrorMessage);
+    return false;
+#else
     if (!CCS_SetSinglePointSmoothingFactor(m_sensorId, static_cast<DWORD>(value))) return reportSdkFailure("CCS_SetSinglePointSmoothingFactor");
     return true;
+#endif
 }
 
 bool ColorFocusControl::SetRefractive(float value)
@@ -516,10 +537,23 @@ bool ColorFocusControl::SetDAParam(float signalLowerLimit,
                                    float invalidValueVoltage)
 {
     if (!ensureConnected("SetDAParam")) return false;
+#ifdef CCS_SDK_V330
+    Q_UNUSED(signalLowerLimit);
+    Q_UNUSED(signalUpperLimit);
+    Q_UNUSED(voltageLowerLimit);
+    Q_UNUSED(voltageUpperLimit);
+    Q_UNUSED(invalidValueVoltage);
+    m_lastErrorMessage = "SetDAParam is not supported by DLL_CCS SDK V3.30";
+    emit errorOccurred(m_sensorId, m_lastErrorMessage);
+    emit s_sendErrorMsg(m_sensorId, m_lastErrorMessage);
+    reportLog(m_lastErrorMessage);
+    return false;
+#else
     if (!CCS_SetDAParam(m_sensorId, signalLowerLimit, signalUpperLimit, voltageLowerLimit, voltageUpperLimit, invalidValueVoltage)) {
         return reportSdkFailure("CCS_SetDAParam");
     }
     return true;
+#endif
 }
 
 bool ColorFocusControl::Dark()
@@ -624,7 +658,21 @@ bool ColorFocusControl::GetBurstNum(DWORD *value) { if (!ensureConnected("GetBur
 bool ColorFocusControl::GetSensitivity(DWORD *value) { if (!ensureConnected("GetSensitivity")) return false; if (!CCS_GetSensitivity(m_sensorId, value)) return reportSdkFailure("CCS_GetSensitivity"); return true; }
 bool ColorFocusControl::GetAutoSensitivityEnabled(DWORD *value) { if (!ensureConnected("GetAutoSensitivityEnabled")) return false; if (!CCS_GetAutoSensitivityEn(m_sensorId, value)) return reportSdkFailure("CCS_GetAutoSensitivityEn"); return true; }
 bool ColorFocusControl::GetSmoothingFactor(DWORD *value) { if (!ensureConnected("GetSmoothingFactor")) return false; if (!CCS_GetSmoothingFactor(m_sensorId, value)) return reportSdkFailure("CCS_GetSmoothingFactor"); return true; }
-bool ColorFocusControl::GetSinglePointSmoothingFactor(DWORD *value) { if (!ensureConnected("GetSinglePointSmoothingFactor")) return false; if (!CCS_GetSinglePointSmoothingFactor(m_sensorId, value)) return reportSdkFailure("CCS_GetSinglePointSmoothingFactor"); return true; }
+bool ColorFocusControl::GetSinglePointSmoothingFactor(DWORD *value)
+{
+    if (!ensureConnected("GetSinglePointSmoothingFactor")) return false;
+#ifdef CCS_SDK_V330
+    Q_UNUSED(value);
+    m_lastErrorMessage = "GetSinglePointSmoothingFactor is not supported by DLL_CCS SDK V3.30";
+    emit errorOccurred(m_sensorId, m_lastErrorMessage);
+    emit s_sendErrorMsg(m_sensorId, m_lastErrorMessage);
+    reportLog(m_lastErrorMessage);
+    return false;
+#else
+    if (!CCS_GetSinglePointSmoothingFactor(m_sensorId, value)) return reportSdkFailure("CCS_GetSinglePointSmoothingFactor");
+    return true;
+#endif
+}
 bool ColorFocusControl::GetRefractive(float *value) { if (!ensureConnected("GetRefractive")) return false; if (!CCS_GetRefractive(m_sensorId, value)) return reportSdkFailure("CCS_GetRefractive"); return true; }
 bool ColorFocusControl::GetHoldLastValue(DWORD *value) { if (!ensureConnected("GetHoldLastValue")) return false; if (!CCS_GetHoldLastVal(m_sensorId, value)) return reportSdkFailure("CCS_GetHoldLastVal"); return true; }
 bool ColorFocusControl::GetOpticalPen(DWORD *value) { if (!ensureConnected("GetOpticalPen")) return false; if (!CCS_GetOpticalPen(m_sensorId, value)) return reportSdkFailure("CCS_GetOpticalPen"); return true; }
@@ -648,10 +696,23 @@ bool ColorFocusControl::GetDAParam(float *signalLowerLimit,
                                    float *invalidValueVoltage)
 {
     if (!ensureConnected("GetDAParam")) return false;
+#ifdef CCS_SDK_V330
+    Q_UNUSED(signalLowerLimit);
+    Q_UNUSED(signalUpperLimit);
+    Q_UNUSED(voltageLowerLimit);
+    Q_UNUSED(voltageUpperLimit);
+    Q_UNUSED(invalidValueVoltage);
+    m_lastErrorMessage = "GetDAParam is not supported by DLL_CCS SDK V3.30";
+    emit errorOccurred(m_sensorId, m_lastErrorMessage);
+    emit s_sendErrorMsg(m_sensorId, m_lastErrorMessage);
+    reportLog(m_lastErrorMessage);
+    return false;
+#else
     if (!CCS_GetDAParam(m_sensorId, signalLowerLimit, signalUpperLimit, voltageLowerLimit, voltageUpperLimit, invalidValueVoltage)) {
         return reportSdkFailure("CCS_GetDAParam");
     }
     return true;
+#endif
 }
 
 bool ColorFocusControl::GetDarkState(DWORD *value) { if (!ensureConnected("GetDarkState")) return false; if (!CCS_GetDarkState(m_sensorId, value)) return reportSdkFailure("CCS_GetDarkState"); return true; }
@@ -674,8 +735,24 @@ double ColorFocusControl::GetCurrentDistance()
         reportSdkFailure("CCS_GetCurrentDistanceData");
         return 0.0;
     }
+    m_latestDistance.store(distance);
+    m_latestIntensity.store(intensity);
+    m_hasLatestSample.store(true);
     emit s_colorFocusUpdated(m_sensorId, distance, intensity);
     return distance;
+}
+
+bool ColorFocusControl::GetLatestSample(float *distance, float *intensity) const
+{
+    if (!distance || !intensity) {
+        return false;
+    }
+    if (!m_hasLatestSample.load()) {
+        return false;
+    }
+    *distance = m_latestDistance.load();
+    *intensity = m_latestIntensity.load();
+    return true;
 }
 
 INT32 ColorFocusControl::ChangeToEncoderValue(float position) const
@@ -723,6 +800,34 @@ void ColorFocusControl::PollCurrentSample()
     emit s_colorFocusUpdated(m_sensorId, distance, intensity);
 }
 
+void ColorFocusControl::RunDataRead()
+{
+    float currentDistance[1] = {0.0f};
+    float currentIntensity[1] = {0.0f};
+
+    while (m_readThreadRunning.load()) {
+        if (CCS_GetCurrentDistanceData(m_sensorId, currentDistance, currentIntensity)) {
+            const UINT16 sensorId = m_sensorId;
+            const float distance = currentDistance[0];
+            const float intensity = currentIntensity[0];
+
+            m_latestDistance.store(distance);
+            m_latestIntensity.store(intensity);
+            m_hasLatestSample.store(true);
+
+            QMetaObject::invokeMethod(this, [this, sensorId, distance, intensity]() {
+                emit sampleUpdated(sensorId, distance, intensity, 0, 0, 0);
+                emit s_colorFocusUpdated(sensorId, distance, intensity);
+            }, Qt::QueuedConnection);
+        }
+
+        Sleep(static_cast<DWORD>(m_pollIntervalMs));
+    }
+
+    m_readThreadRunning = false;
+    CCS_StopAcquisition(m_sensorId);
+}
+
 bool ColorFocusControl::ensureConnected(const QString &action)
 {
     if (m_connected) {
@@ -737,8 +842,12 @@ bool ColorFocusControl::ensureConnected(const QString &action)
 
 bool ColorFocusControl::reportSdkFailure(const QString &action)
 {
+#ifdef CCS_SDK_V330
+    m_lastErrorMessage = QString("%1 failed. sensor=%2 sdkError=unavailable in DLL_CCS SDK V3.30").arg(action).arg(m_sensorId);
+#else
     const int sdkError = CCS_GetErrorCode(m_sensorId);
     m_lastErrorMessage = QString("%1 failed. sensor=%2 sdkError=%3").arg(action).arg(m_sensorId).arg(sdkError);
+#endif
     m_connectFailed = true;
     emit errorOccurred(m_sensorId, m_lastErrorMessage);
     emit s_sendErrorMsg(m_sensorId, m_lastErrorMessage);
