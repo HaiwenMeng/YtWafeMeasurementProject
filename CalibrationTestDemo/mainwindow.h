@@ -99,6 +99,7 @@ private:
     bool invokeMotion(const std::function<bool()> &call, const QString &action, QString *errorMessage);
     bool measureStandard(const StandardSpec &spec, double dx, double dy, double velocity, double *total, QString *errorMessage);
     double filterValue(double newValue, int windowSize = 5);
+    DistanceSnapshot latestDistanceSnapshot() const;
     DistanceSnapshot distanceSnapshot() const;
     QString formatNumber(double value, int precision = 3) const;
     void stopColorFocus();

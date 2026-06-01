@@ -556,9 +556,13 @@ bool MainWindow::ensureDevicesReady(QString *errorMessage) const
         *errorMessage = QStringLiteral("Color focus acquisition is not started.");
         return false;
     }
-    DistanceSnapshot snapshot = distanceSnapshot();
+    DistanceSnapshot snapshot = latestDistanceSnapshot();
     if (!snapshot.topValid || !snapshot.bottomValid) {
-        *errorMessage = QStringLiteral("Color focus has no valid top/bottom sample.");
+        *errorMessage = QStringLiteral("Color focus has no valid latest top/bottom sample. topValid=%1 bottomValid=%2 top=%3 bottom=%4")
+            .arg(snapshot.topValid)
+            .arg(snapshot.bottomValid)
+            .arg(snapshot.top)
+            .arg(snapshot.bottom);
         return false;
     }
     return true;
@@ -801,16 +805,30 @@ bool MainWindow::measureStandard(const StandardSpec &spec, double dx, double dy,
             *errorMessage = QStringLiteral("Measure standard %1 canceled.").arg(spec.id);
             return false;
         }
-        DistanceSnapshot snapshot = distanceSnapshot();
+        DistanceSnapshot snapshot = latestDistanceSnapshot();
         if (!snapshot.topValid || !snapshot.bottomValid ||
             !qIsFinite(snapshot.top) || !qIsFinite(snapshot.bottom) ||
             qFuzzyIsNull(snapshot.top) || qFuzzyIsNull(snapshot.bottom)) {
-            *errorMessage = QStringLiteral("Invalid color focus sample for standard %1. topValid=%2 bottomValid=%3 top=%4 bottom=%5")
+            Motion::AxisPosition position;
+            Motion::AxisStateSnapshot state;
+            {
+                QMutexLocker locker(&m_stateMutex);
+                position = m_axisPosition;
+                state = m_axisState;
+            }
+            *errorMessage = QStringLiteral("Invalid color focus latest sample for standard %1 sample=%2. topValid=%3 bottomValid=%4 top=%5 bottom=%6 axis=(%7,%8,%9) state=(%10,%11,%12)")
                 .arg(spec.id)
+                .arg(i + 1)
                 .arg(snapshot.topValid)
                 .arg(snapshot.bottomValid)
                 .arg(snapshot.top)
-                .arg(snapshot.bottom);
+                .arg(snapshot.bottom)
+                .arg(position.x)
+                .arg(position.y)
+                .arg(position.z)
+                .arg(state.stateX)
+                .arg(state.stateY)
+                .arg(state.stateZ);
             return false;
         }
         lastTop = snapshot.top;
@@ -841,6 +859,24 @@ double MainWindow::filterValue(double newValue, int windowSize)
     const double median = sorted.at(sorted.size() / 2);
     const double average = std::accumulate(sorted.constBegin(), sorted.constEnd(), 0.0) / sorted.size();
     return median * 0.7 + average * 0.3;
+}
+
+MainWindow::DistanceSnapshot MainWindow::latestDistanceSnapshot() const
+{
+    DistanceSnapshot snapshot;
+    float topDistance = 0.0f;
+    float topIntensity = 0.0f;
+    float bottomDistance = 0.0f;
+    float bottomIntensity = 0.0f;
+    if (m_topFocus) {
+        snapshot.topValid = m_topFocus->GetLatestSample(&topDistance, &topIntensity);
+        snapshot.top = topDistance;
+    }
+    if (m_bottomFocus) {
+        snapshot.bottomValid = m_bottomFocus->GetLatestSample(&bottomDistance, &bottomIntensity);
+        snapshot.bottom = bottomDistance;
+    }
+    return snapshot;
 }
 
 MainWindow::DistanceSnapshot MainWindow::distanceSnapshot() const

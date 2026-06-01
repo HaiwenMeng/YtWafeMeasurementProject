@@ -4,6 +4,39 @@
 #include <QMetaObject>
 #include <QtGlobal>
 
+namespace
+{
+bool validLatestSample(float distance, float intensity)
+{
+    return qIsFinite(static_cast<double>(distance)) &&
+           qIsFinite(static_cast<double>(intensity)) &&
+           distance > 0.0f;
+}
+
+QString loadedCcsDllPath()
+{
+    HMODULE module = GetModuleHandleW(L"DLL_CCS.dll");
+    if (!module) {
+        return QStringLiteral("DLL_CCS.dll not loaded");
+    }
+    wchar_t path[MAX_PATH] = {0};
+    const DWORD length = GetModuleFileNameW(module, path, MAX_PATH);
+    if (length == 0) {
+        return QStringLiteral("DLL_CCS.dll path unavailable");
+    }
+    return QString::fromWCharArray(path, static_cast<int>(length));
+}
+
+QString ccsSdkBuildTag()
+{
+#ifdef CCS_SDK_V330
+    return QStringLiteral("SDK_V3_30_x64");
+#else
+    return QStringLiteral("SDK build without CCS_SDK_V330");
+#endif
+}
+}
+
 ColorFocusControl::ColorFocusControl(QObject *parent)
     : QObject(parent),
       m_sensorId(0),
@@ -90,6 +123,12 @@ bool ColorFocusControl::ConnectDevice(const QString &ipAddress)
     m_connected = true;
     m_connectFailed = false;
     m_lastErrorMessage.clear();
+    static std::atomic_bool s_reportedRuntime(false);
+    if (!s_reportedRuntime.exchange(true)) {
+        reportLog(QString("DLL_CCS runtime path=%1 sdkBuild=%2")
+                      .arg(loadedCcsDllPath())
+                      .arg(ccsSdkBuildTag()));
+    }
     emit connectionStateChanged(m_sensorId, true);
     emit s_connectionStateChanged(m_sensorId, true);
     reportLog(QString("Sensor %1 connected to %2").arg(m_sensorId).arg(QString::fromLatin1(ipBytes)));
@@ -188,6 +227,9 @@ bool ColorFocusControl::StartAcquisition_CCS(TriggerMode triggerMode)
     m_distanceValueMap.clear();
     m_encoders.clear();
 
+    if (!SetScanRate(5)) {
+        return false;
+    }
     if (!SetTriggerMode(static_cast<int>(triggerMode))) {
         return false;
     }
@@ -395,6 +437,7 @@ bool ColorFocusControl::SetScanRate(int value)
 {
     if (!ensureConnected("SetScanRate")) return false;
     if (!CCS_SetScanRate(m_sensorId, static_cast<DWORD>(value))) return reportSdkFailure("CCS_SetScanRate");
+    reportLog(QString("Sensor %1 scanRate=%2").arg(m_sensorId).arg(value));
     return true;
 }
 
@@ -735,6 +778,17 @@ double ColorFocusControl::GetCurrentDistance()
         reportSdkFailure("CCS_GetCurrentDistanceData");
         return 0.0;
     }
+    if (!validLatestSample(distance, intensity)) {
+        m_hasLatestSample.store(false);
+        m_lastErrorMessage = QString("CCS_GetCurrentDistanceData returned invalid sample. sensor=%1 distance=%2 intensity=%3")
+                                 .arg(m_sensorId)
+                                 .arg(distance)
+                                 .arg(intensity);
+        emit errorOccurred(m_sensorId, m_lastErrorMessage);
+        emit s_sendErrorMsg(m_sensorId, m_lastErrorMessage);
+        reportLog(m_lastErrorMessage);
+        return 0.0;
+    }
     m_latestDistance.store(distance);
     m_latestIntensity.store(intensity);
     m_hasLatestSample.store(true);
@@ -750,8 +804,13 @@ bool ColorFocusControl::GetLatestSample(float *distance, float *intensity) const
     if (!m_hasLatestSample.load()) {
         return false;
     }
-    *distance = m_latestDistance.load();
-    *intensity = m_latestIntensity.load();
+    const float latestDistance = m_latestDistance.load();
+    const float latestIntensity = m_latestIntensity.load();
+    if (!validLatestSample(latestDistance, latestIntensity)) {
+        return false;
+    }
+    *distance = latestDistance;
+    *intensity = latestIntensity;
     return true;
 }
 
@@ -810,6 +869,11 @@ void ColorFocusControl::RunDataRead()
             const UINT16 sensorId = m_sensorId;
             const float distance = currentDistance[0];
             const float intensity = currentIntensity[0];
+            if (!validLatestSample(distance, intensity)) {
+                m_hasLatestSample.store(false);
+                Sleep(static_cast<DWORD>(m_pollIntervalMs));
+                continue;
+            }
 
             m_latestDistance.store(distance);
             m_latestIntensity.store(intensity);
@@ -819,6 +883,10 @@ void ColorFocusControl::RunDataRead()
                 emit sampleUpdated(sensorId, distance, intensity, 0, 0, 0);
                 emit s_colorFocusUpdated(sensorId, distance, intensity);
             }, Qt::QueuedConnection);
+        } else {
+            m_hasLatestSample.store(false);
+            reportSdkFailure("CCS_GetCurrentDistanceData");
+            break;
         }
 
         Sleep(static_cast<DWORD>(m_pollIntervalMs));

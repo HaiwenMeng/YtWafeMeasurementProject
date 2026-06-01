@@ -960,10 +960,21 @@ bool MainWindow::waitForZ(double z, QString *errorMessage)
 
 bool MainWindow::waitForFocusSamples(QString *errorMessage)
 {
-    return waitFor([this]() {
-        QMutexLocker locker(&m_stateMutex);
-        return m_topValid && m_bottomValid;
-    }, kConnectionTimeoutMs, QStringLiteral("Color focus valid sample timeout."), errorMessage);
+    QString waitError;
+    if (waitFor([this]() {
+            const DistanceSnapshot snapshot = latestDistanceSnapshot();
+            return snapshot.topValid && snapshot.bottomValid;
+        }, kConnectionTimeoutMs, QStringLiteral("Color focus valid sample timeout."), &waitError)) {
+        return true;
+    }
+    const DistanceSnapshot snapshot = latestDistanceSnapshot();
+    *errorMessage = QStringLiteral("%1 topValid=%2 bottomValid=%3 top=%4 bottom=%5")
+        .arg(waitError)
+        .arg(snapshot.topValid)
+        .arg(snapshot.bottomValid)
+        .arg(snapshot.top)
+        .arg(snapshot.bottom);
+    return false;
 }
 
 bool MainWindow::invokeMotion(const std::function<bool()> &call, const QString &action, QString *errorMessage)
@@ -1187,9 +1198,28 @@ bool MainWindow::measureStandard(const StandardSpec &spec, double dx, double dy,
     QElapsedTimer timer;
     timer.start();
     while (!m_stopRequested && timer.elapsed() < kWaitTimeoutMs) {
-        DistanceSnapshot snapshot = distanceSnapshot();
-        if (!snapshot.topValid || !snapshot.bottomValid) {
-            *errorMessage = QStringLiteral("Invalid color focus sample for standard %1.").arg(spec.id);
+        DistanceSnapshot snapshot = latestDistanceSnapshot();
+        if (!snapshot.topValid || !snapshot.bottomValid || !qIsFinite(snapshot.top) || !qIsFinite(snapshot.bottom)) {
+            Motion::AxisPosition position;
+            Motion::AxisStateSnapshot state;
+            {
+                QMutexLocker locker(&m_stateMutex);
+                position = m_position;
+                state = m_axisState;
+            }
+            *errorMessage = QStringLiteral("Invalid color focus latest sample for standard %1 sample=%2. topValid=%3 bottomValid=%4 top=%5 bottom=%6 axis=(%7,%8,%9) state=(%10,%11,%12)")
+                .arg(spec.id)
+                .arg(values.size() + 1)
+                .arg(snapshot.topValid)
+                .arg(snapshot.bottomValid)
+                .arg(snapshot.top)
+                .arg(snapshot.bottom)
+                .arg(position.x)
+                .arg(position.y)
+                .arg(position.z)
+                .arg(state.stateX)
+                .arg(state.stateY)
+                .arg(state.stateZ);
             return false;
         }
         values.append(filteredValue(snapshot.top + snapshot.bottom + spec.thickness, &m_calibrationFilter, 5));
@@ -1228,6 +1258,24 @@ QVector<MainWindow::StandardSpec> MainWindow::standardsFromSettings(const ParamS
     return standards;
 }
 
+
+MainWindow::DistanceSnapshot MainWindow::latestDistanceSnapshot() const
+{
+    DistanceSnapshot snapshot;
+    float topDistance = 0.0f;
+    float topIntensity = 0.0f;
+    float bottomDistance = 0.0f;
+    float bottomIntensity = 0.0f;
+    if (m_topFocus) {
+        snapshot.topValid = m_topFocus->GetLatestSample(&topDistance, &topIntensity);
+        snapshot.top = topDistance;
+    }
+    if (m_bottomFocus) {
+        snapshot.bottomValid = m_bottomFocus->GetLatestSample(&bottomDistance, &bottomIntensity);
+        snapshot.bottom = bottomDistance;
+    }
+    return snapshot;
+}
 MainWindow::DistanceSnapshot MainWindow::distanceSnapshot() const
 {
     QMutexLocker locker(&m_stateMutex);
@@ -1491,7 +1539,7 @@ bool MainWindow::scanOneLine(const ProPathLine &line, const ProRecipe &recipe, b
                              qAbs(position.y - line.endY) <= kPositionTolerance &&
                              readyState(state.stateX) && readyState(state.stateY);
         if (sampleTimer.elapsed() >= kSampleIntervalMs) {
-            const DistanceSnapshot snapshot = distanceSnapshot();
+            const DistanceSnapshot snapshot = latestDistanceSnapshot();
             if (position.valid && snapshot.topValid && snapshot.bottomValid &&
                 qIsFinite(snapshot.top) && qIsFinite(snapshot.bottom)) {
                 ProMeasurePoint point;
@@ -1670,9 +1718,14 @@ bool MainWindow::sampleCenterPoint(const ProRecipe &recipe, ProMeasurePoint *poi
     double bottomSum = 0.0;
     int sampleCount = 0;
     for (int i = 0; i < 100 && !m_stopRequested; ++i) {
-        const DistanceSnapshot snapshot = distanceSnapshot();
+        const DistanceSnapshot snapshot = latestDistanceSnapshot();
         if (!snapshot.topValid || !snapshot.bottomValid || !qIsFinite(snapshot.top) || !qIsFinite(snapshot.bottom)) {
-            *errorMessage = QStringLiteral("Invalid color focus sample at center point.");
+            *errorMessage = QStringLiteral("Invalid color focus latest sample at center point sample=%1. topValid=%2 bottomValid=%3 top=%4 bottom=%5")
+                .arg(i + 1)
+                .arg(snapshot.topValid)
+                .arg(snapshot.bottomValid)
+                .arg(snapshot.top)
+                .arg(snapshot.bottom);
             return false;
         }
         topSum += snapshot.top;
