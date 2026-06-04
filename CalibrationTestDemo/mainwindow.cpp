@@ -25,8 +25,8 @@
 
 namespace
 {
-constexpr int kTopSensorId = 0;
-constexpr int kBottomSensorId = 1;
+constexpr int kTopSensorId = SENSOR_ID1;
+constexpr int kBottomSensorId = SENSOR_ID2;
 constexpr int kSampleCount = 30;
 constexpr int kSampleIntervalMs = 100;
 constexpr int kWaitTimeoutMs = 120000;

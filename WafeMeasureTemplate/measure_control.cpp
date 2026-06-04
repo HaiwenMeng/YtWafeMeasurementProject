@@ -1024,8 +1024,7 @@ void MeasureControl::StartMeasure(MeasureMode mode)
 #ifdef ORGANIZE_STANDARD
         //一一对应比对上下数据（有缺陷）
         qDebug() << u8"开始整理数据" << QDateTime::currentDateTime();
-        //OrganizeData(m_vctAllDataPointByLine, vctAllDataPoint, interval);
-        OrganizeDataNoIntersection(m_vctAllDataPointByLine, vctAllDataPoint, interval);
+        OrganizeData(m_vctAllDataPointByLine, vctAllDataPoint, interval);
         /*if((m_vctAllDataPointByLine.size()!=0)&&(m_vctAllDataPointByLine.back().size() < 5000))
         {
             QtConcurrent::run([=](){
@@ -1195,7 +1194,6 @@ void MeasureControl::StartMeasure(MeasureMode mode)
     // qDebug() << u8"开始写文件" << QDateTime::currentDateTime();
     WriteDistanceDataToFile(m_vctAllDataPointByLine);
     // qDebug() << u8"结束写文件" << QDateTime::currentDateTime();
-    return;
 #endif
 
 #ifdef ORGANIZE_FORZGRAVITY
@@ -1224,6 +1222,34 @@ void MeasureControl::StartMeasure(MeasureMode mode)
     //将圆心值添加到每条线末尾
     for (std::vector<double>& vctZGravity : m_vctAllZGravityByLine) {
         vctZGravity.push_back(circleCenterZGravity);
+    }
+
+    if (m_vctAllZGravityByLine.size() != m_vctAllDataPointByLine.size()) {
+        QString errorMsg = QString("ZGravity line count mismatch: measure=%1, gravity=%2")
+                               .arg(static_cast<int>(m_vctAllDataPointByLine.size()))
+                               .arg(static_cast<int>(m_vctAllZGravityByLine.size()));
+        emit s_writeLog(errorMsg);
+        emit s_sendErrorMsg(0, errorMsg);
+        return;
+    }
+    for (int i = 0; i < static_cast<int>(m_vctAllDataPointByLine.size()); ++i) {
+        if (m_vctAllZGravityByLine[i].size() != m_vctAllDataPointByLine[i].size()) {
+            QString errorMsg = QString("ZGravity point count mismatch: line=%1, measure=%2, gravity=%3")
+                                   .arg(i + 1)
+                                   .arg(static_cast<int>(m_vctAllDataPointByLine[i].size()))
+                                   .arg(static_cast<int>(m_vctAllZGravityByLine[i].size()));
+            emit s_writeLog(errorMsg);
+            emit s_sendErrorMsg(0, errorMsg);
+            return;
+        }
+    }
+    if (m_vecAllZGravity.size() != vctAllDataPoint.size()) {
+        QString errorMsg = QString("Algorithm ZGravity count mismatch: measure=%1, gravity=%2")
+                               .arg(static_cast<int>(vctAllDataPoint.size()))
+                               .arg(static_cast<int>(m_vecAllZGravity.size()));
+        emit s_writeLog(errorMsg);
+        emit s_sendErrorMsg(0, errorMsg);
+        return;
     }
 
 

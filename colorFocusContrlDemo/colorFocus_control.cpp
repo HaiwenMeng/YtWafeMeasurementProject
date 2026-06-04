@@ -1,6 +1,8 @@
 #include "colorFocus_control.h"
 
 #include <QByteArray>
+#include <QDateTime>
+#include <QFileInfo>
 #include <QMetaObject>
 #include <QtGlobal>
 
@@ -27,6 +29,19 @@ QString loadedCcsDllPath()
     return QString::fromWCharArray(path, static_cast<int>(length));
 }
 
+QString loadedCcsDllInfo()
+{
+    const QString path = loadedCcsDllPath();
+    QFileInfo info(path);
+    if (!info.exists()) {
+        return path;
+    }
+    return QString("path=%1 size=%2 lastModified=%3")
+        .arg(info.absoluteFilePath())
+        .arg(info.size())
+        .arg(info.lastModified().toString(Qt::ISODate));
+}
+
 QString ccsSdkBuildTag()
 {
 #ifdef CCS_SDK_V330
@@ -34,6 +49,34 @@ QString ccsSdkBuildTag()
 #else
     return QStringLiteral("SDK build without CCS_SDK_V330");
 #endif
+}
+
+bool ccsRuntimeMatchesBuild(QString *errorMessage)
+{
+#ifdef CCS_SDK_V330
+    const QString path = loadedCcsDllPath();
+    QFileInfo info(path);
+    if (!info.exists()) {
+        if (errorMessage) {
+            *errorMessage = QString("DLL_CCS runtime check failed. %1 sdkBuild=%2")
+                .arg(path)
+                .arg(ccsSdkBuildTag());
+        }
+        return false;
+    }
+    constexpr qint64 kExpectedV330DllSize = 79872;
+    if (info.size() != kExpectedV330DllSize) {
+        if (errorMessage) {
+            *errorMessage = QString("DLL_CCS runtime check failed. expected SDK_V3_30_x64 size=%1 actual %2")
+                .arg(kExpectedV330DllSize)
+                .arg(loadedCcsDllInfo());
+        }
+        return false;
+    }
+#else
+    Q_UNUSED(errorMessage);
+#endif
+    return true;
 }
 }
 
@@ -116,6 +159,16 @@ bool ColorFocusControl::ConnectDevice(const QString &ipAddress)
         return false;
     }
 
+    QString runtimeError;
+    if (!ccsRuntimeMatchesBuild(&runtimeError)) {
+        m_lastErrorMessage = runtimeError;
+        emit errorOccurred(m_sensorId, m_lastErrorMessage);
+        emit s_sendErrorMsg(m_sensorId, m_lastErrorMessage);
+        reportLog(m_lastErrorMessage);
+        m_connectFailed = true;
+        return false;
+    }
+
     if (!CCS_ConnectSensor(m_sensorId, ipBytes.data())) {
         return reportSdkFailure(QString("CCS_ConnectSensor ip=%1").arg(QString::fromLatin1(ipBytes)));
     }
@@ -125,8 +178,8 @@ bool ColorFocusControl::ConnectDevice(const QString &ipAddress)
     m_lastErrorMessage.clear();
     static std::atomic_bool s_reportedRuntime(false);
     if (!s_reportedRuntime.exchange(true)) {
-        reportLog(QString("DLL_CCS runtime path=%1 sdkBuild=%2")
-                      .arg(loadedCcsDllPath())
+        reportLog(QString("DLL_CCS runtime %1 sdkBuild=%2")
+                      .arg(loadedCcsDllInfo())
                       .arg(ccsSdkBuildTag()));
     }
     emit connectionStateChanged(m_sensorId, true);
@@ -309,13 +362,6 @@ bool ColorFocusControl::InitAcquisitionEvent(int bufferLength)
 bool ColorFocusControl::ReadDistanceBuffer(int readNum, int triggerAxis)
 {
     if (!ensureConnected("ReadDistanceBuffer")) {
-        return false;
-    }
-    if (!m_endAcqEvent) {
-        m_lastErrorMessage = "ReadDistanceBuffer failed. acquisition event is not initialized";
-        emit errorOccurred(m_sensorId, m_lastErrorMessage);
-        emit s_sendErrorMsg(m_sensorId, m_lastErrorMessage);
-        reportLog(m_lastErrorMessage);
         return false;
     }
     if (readNum <= 0) {
@@ -911,7 +957,7 @@ bool ColorFocusControl::ensureConnected(const QString &action)
 bool ColorFocusControl::reportSdkFailure(const QString &action)
 {
 #ifdef CCS_SDK_V330
-    m_lastErrorMessage = QString("%1 failed. sensor=%2 sdkError=unavailable in DLL_CCS SDK V3.30").arg(action).arg(m_sensorId);
+    m_lastErrorMessage = QString("%1 failed. sensor=%2 sdkErrorCode=unavailable in DLL_CCS SDK V3.30").arg(action).arg(m_sensorId);
 #else
     const int sdkError = CCS_GetErrorCode(m_sensorId);
     m_lastErrorMessage = QString("%1 failed. sensor=%2 sdkError=%3").arg(action).arg(m_sensorId).arg(sdkError);
