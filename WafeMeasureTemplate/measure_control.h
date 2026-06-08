@@ -183,6 +183,7 @@ private:
     void WriteDistanceDataToFile(std::vector<std::vector<DataPoint>>& vctAllDataPointByLine);
     void WriteMirrorCalibrationDataToFile(std::vector<std::vector<DataPoint>>& vctAllDataPointByLine);
     void WriteTopAndBottomDistanceDataToFile(std::vector<std::vector<DataPoint>>& vctTopDataPointByLine, std::vector<std::vector<DataPoint>>& vctBottomDataPointByLine);
+    void SaveLineDistanceMats(const std::vector<DataPoint>& lineData, int lineIndex);
 
     INT32 ChangeToEncoderValue(float position);
     float ChangeToPositionValue(INT32 encoder);
@@ -281,6 +282,7 @@ private:
     QMap<int, std::vector<int>> m_currentPathTypeXIndexMap;
     QMap<int, QMap<int, double>> m_currentPathTypeZgravityMap;
     std::vector<double> m_vecAllZGravity;
+    QString m_lineDistanceMatRunDir;
 
     //滤波函数使用
     QVector<double> m_dataBuffer_top;

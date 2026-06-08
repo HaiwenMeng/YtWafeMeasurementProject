@@ -7,6 +7,7 @@ QMAKE_CXXFLAGS += /bigobj
 
 ROOT_DIR = $$clean_path($$PWD/..)
 SDK_DIR = $$clean_path($$ROOT_DIR/BaseLib/SDK_V3_30_x64)
+OPENCV_DIR = F:/QtProject/BaseLibX64/Opencv_full460
 
 
 DEFINES += ENCODER_TRIGGER
@@ -25,9 +26,11 @@ INCLUDEPATH += \
     $$ROOT_DIR/AlgoDemo/src/algo \
     $$ROOT_DIR/AlgoDemo/third_party/eigen3 \
     $$ROOT_DIR/CalibrationTestDemo \
-    $$SDK_DIR
+    $$SDK_DIR \
+    $$OPENCV_DIR/include
 
 LIBS += -L$$SDK_DIR -lDLL_CCS
+LIBS += -L$$OPENCV_DIR/lib -lopencv_world460
 CONFIG(debug, debug|release) {
     LIBS += -L$$PWD/QXlsx/lib/DebugLib -lQXlsxQt5
 } else {
@@ -139,5 +142,7 @@ win32 {
     OUT_SDK_DLL = $$shell_path($$DESTDIR/DLL_CCS.dll)
     ALG_DLL = $$shell_path($$PWD/AlgApi.dll)
     OUT_ALG_DLL = $$shell_path($$DESTDIR/AlgApi.dll)
-    QMAKE_POST_LINK = $$quote(copy /Y "$$SDK_DLL" "$$OUT_SDK_DLL") $$escape_expand(\n\t) $$quote(copy /Y "$$ALG_DLL" "$$OUT_ALG_DLL")
+    OPENCV_DLL = $$shell_path($$OPENCV_DIR/bin/opencv_world460.dll)
+    OUT_OPENCV_DLL = $$shell_path($$DESTDIR/opencv_world460.dll)
+    QMAKE_POST_LINK = $$quote(copy /Y "$$SDK_DLL" "$$OUT_SDK_DLL") $$escape_expand(\n\t) $$quote(copy /Y "$$ALG_DLL" "$$OUT_ALG_DLL") $$escape_expand(\n\t) $$quote(copy /Y "$$OPENCV_DLL" "$$OUT_OPENCV_DLL")
 }

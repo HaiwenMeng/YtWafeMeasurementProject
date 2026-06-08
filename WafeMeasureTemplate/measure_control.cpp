@@ -5,6 +5,7 @@
 #include <QtMath>
 #include <QtConcurrent/QtConcurrent>
 #include <qcustomplot.h>
+#include <opencv2/core.hpp>
 #include "WaferAlgorithm.h"
 
 #include <limits>
@@ -890,6 +891,7 @@ void MeasureControl::StartMeasure(MeasureMode mode)
     m_vecAllZGravity.clear();
     m_vctAllDataPointByLine.clear();
     m_vctAllZGravityByLine.clear();
+    m_lineDistanceMatRunDir.clear();
     std::vector<DataPoint> vctAllDataPoint; //所有线的点vector
     //用于计算BOW值的数据
     std::vector<DataPoint> nor_data;
@@ -1631,6 +1633,7 @@ void MeasureControl::OrganizeData(std::vector<std::vector<DataPoint>>& vctAllDat
 
     m_vctAllZGravityByLine.push_back(vecZGravity);
     vctAllDataPointByLine.push_back(vctDataPoint);
+    SaveLineDistanceMats(vctDataPoint, m_currentPathIndex);
 
     emit s_pathDataOver(m_currentPathIndex);
 }
@@ -1682,6 +1685,7 @@ void MeasureControl::OrganizeDataNoIntersection(std::vector<std::vector<DataPoin
     }
 
     vctAllDataPointByLine.push_back(vctDataPoint);
+    SaveLineDistanceMats(vctDataPoint, m_currentPathIndex);
 
     emit s_pathDataOver(m_currentPathIndex);
 }
@@ -1976,56 +1980,157 @@ void MeasureControl::OrganizeDataTopAndBottom(std::vector<std::vector<DataPoint>
     vctBottomDataPointByLine.push_back(vctDataPoint_bottom);
 }
 
+void MeasureControl::SaveLineDistanceMats(const std::vector<DataPoint>& lineData, int lineIndex)
+{
+    if (lineData.empty()) {
+        emit s_writeLog(QString("Skip line distance Mat save, empty line: %1").arg(lineIndex + 1));
+        return;
+    }
+
+    if (m_lineDistanceMatRunDir.isEmpty()) {
+        QString modeTag = "Measure";
+        if (ProgramMeasureMode == ACQNormalGravity) {
+            modeTag = "GravityNormal";
+        } else if (ProgramMeasureMode == ACQOppsiteGravity) {
+            modeTag = "GravityOppsite";
+        }
+        const QString safeProductName = ProductName.isEmpty() ? QString("Unknown") : ProductName;
+        const QString runName = QString("%1_%2_%3")
+                                    .arg(modeTag)
+                                    .arg(safeProductName)
+                                    .arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss_zzz"));
+        QDir appDir = QCoreApplication::applicationDirPath();
+        m_lineDistanceMatRunDir = appDir.filePath(QString("LineDistanceMats/type%1lines/%2/%3/%4")
+                                                      .arg(m_measurePath)
+                                                      .arg(m_productSize)
+                                                      .arg(m_productThickness)
+                                                      .arg(runName));
+    }
+
+    QDir matDir(m_lineDistanceMatRunDir);
+    if (!matDir.exists() && !matDir.mkpath(".")) {
+        const QString errorMsg = QString("Create line distance Mat directory failed: %1").arg(m_lineDistanceMatRunDir);
+        emit s_writeLog(errorMsg);
+        emit s_sendErrorMsg(0, errorMsg);
+        return;
+    }
+
+    cv::Mat topMat(static_cast<int>(lineData.size()), 3, CV_32FC1);
+    cv::Mat bottomMat(static_cast<int>(lineData.size()), 3, CV_32FC1);
+    for (int i = 0; i < static_cast<int>(lineData.size()); ++i) {
+        const DataPoint& point = lineData.at(i);
+        topMat.at<float>(i, 0) = static_cast<float>(point.x);
+        topMat.at<float>(i, 1) = static_cast<float>(point.y);
+        topMat.at<float>(i, 2) = static_cast<float>(point.a);
+        bottomMat.at<float>(i, 0) = static_cast<float>(point.x);
+        bottomMat.at<float>(i, 1) = static_cast<float>(point.y);
+        bottomMat.at<float>(i, 2) = static_cast<float>(point.b);
+    }
+
+    const QString topPath = matDir.filePath(QString("top_line_%1.xml").arg(lineIndex));
+    const QString bottomPath = matDir.filePath(QString("bottom_line_%1.xml").arg(lineIndex));
+    try {
+        cv::FileStorage topStorage(topPath.toLocal8Bit().constData(), cv::FileStorage::WRITE);
+        if (!topStorage.isOpened()) {
+            const QString errorMsg = QString("Open top line Mat file failed: %1").arg(topPath);
+            emit s_writeLog(errorMsg);
+            emit s_sendErrorMsg(0, errorMsg);
+            return;
+        }
+        topStorage << "columns" << "x,y,top";
+        topStorage << "mat" << topMat;
+        topStorage.release();
+
+        cv::FileStorage bottomStorage(bottomPath.toLocal8Bit().constData(), cv::FileStorage::WRITE);
+        if (!bottomStorage.isOpened()) {
+            const QString errorMsg = QString("Open bottom line Mat file failed: %1").arg(bottomPath);
+            emit s_writeLog(errorMsg);
+            emit s_sendErrorMsg(0, errorMsg);
+            return;
+        }
+        bottomStorage << "columns" << "x,y,bottom";
+        bottomStorage << "mat" << bottomMat;
+        bottomStorage.release();
+    } catch (const cv::Exception& e) {
+        const QString errorMsg = QString("Save line distance Mat failed: line=%1, error=%2")
+                                     .arg(lineIndex + 1)
+                                     .arg(QString::fromLocal8Bit(e.what()));
+        emit s_writeLog(errorMsg);
+        emit s_sendErrorMsg(0, errorMsg);
+        return;
+    }
+
+    emit s_writeLog(QString("Saved line distance Mat: line=%1, points=%2, dir=%3")
+                        .arg(lineIndex + 1)
+                        .arg(static_cast<int>(lineData.size()))
+                        .arg(m_lineDistanceMatRunDir));
+}
+
 void MeasureControl::WriteDistanceDataToFile(std::vector<std::vector<DataPoint>>& vctAllDataPointByLine)
 {
     QDir appDir = QCoreApplication::applicationDirPath();
-    QString tag = ProgramMeasureMode == ACQNormalGravity ? "Normal" : "Oppsite";
-    QString dirName = QString("ZGravityFile/type%1lines/%2/%3/ZGravity/%4").arg(m_measurePath).arg(m_productSize).arg(m_productThickness).arg(tag);
-    QString ZGravityFileFilePath = appDir.filePath(dirName);
-    QDir dirZGravity(ZGravityFileFilePath);
-    if (!dirZGravity.exists())
-    {
-        // 目录不存在，创建它
-        if (dirZGravity.mkpath(".")) // "." 表示创建当前目录
-        {
-            qDebug() << "成功创建目录:" << ZGravityFileFilePath;
-        }
-        else
-        {
-            qDebug() << "创建目录失败:" << ZGravityFileFilePath;
-            // 这里可以添加错误处理代码，例如显示错误消息或退出程序
-        }
+    QString dirName;
+    if (ProgramMeasureMode == NormalMeasure) {
+        const QString safeProductName = ProductName.isEmpty() ? QString("Unknown") : ProductName;
+        const QString runName = QString("%1_%2")
+                                    .arg(safeProductName)
+                                    .arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss_zzz"));
+        dirName = QString("MeasureLineData/type%1lines/%2/%3/%4")
+                      .arg(m_measurePath)
+                      .arg(m_productSize)
+                      .arg(m_productThickness)
+                      .arg(runName);
+    } else {
+        QString tag = ProgramMeasureMode == ACQNormalGravity ? "Normal" : "Oppsite";
+        dirName = QString("ZGravityFile/type%1lines/%2/%3/ZGravity/%4")
+                      .arg(m_measurePath)
+                      .arg(m_productSize)
+                      .arg(m_productThickness)
+                      .arg(tag);
     }
 
-    for (int lineIndex = 0; lineIndex < vctAllDataPointByLine.size(); ++lineIndex)
+    const QString lineDataDirPath = appDir.filePath(dirName);
+    QDir lineDataDir(lineDataDirPath);
+    if (!lineDataDir.exists() && !lineDataDir.mkpath(".")) {
+        QString errorMsg = QString("Create line data directory failed: %1").arg(lineDataDirPath);
+        emit s_writeLog(errorMsg);
+        emit s_sendErrorMsg(0, errorMsg);
+        return;
+    }
+
+    emit s_writeLog(QString("Save line data csv directory: %1").arg(lineDataDirPath));
+    for (int lineIndex = 0; lineIndex < static_cast<int>(vctAllDataPointByLine.size()); ++lineIndex)
     {
-        QString currentDir = QCoreApplication::applicationDirPath();
-        QString currentfileName = QString("%1/line_%2.csv").arg(ZGravityFileFilePath).arg(lineIndex);
+        const QString currentfileName = QString("%1/line_%2.csv").arg(lineDataDirPath).arg(lineIndex);
         QFile file(currentfileName);
-
-        // 以文本方式写入
-        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            QTextStream out(&file);
-
-            std::vector<DataPoint> vctDataPoint = vctAllDataPointByLine.at(lineIndex);
-            for (int pointIndex = 0; pointIndex < vctDataPoint.size(); ++pointIndex) {
-                // 逐行写入
-                out << QString("%1,%2,%3,%4,%5,%6,%7,0").arg(vctDataPoint.at(pointIndex).x).arg(vctDataPoint.at(pointIndex).y)
-                           .arg(vctDataPoint.at(pointIndex).x_en).arg(vctDataPoint.at(pointIndex).y_en)
-                           .arg(vctDataPoint.at(pointIndex).a).arg(vctDataPoint.at(pointIndex).b)
-                           .arg(vctDataPoint.at(pointIndex).t) << "\n";
-
-                // 逐行写入(标定用)
-                // out << QString("%1,%2,%3,%4,%5").arg(vctDataPoint.at(pointIndex).x).arg(vctDataPoint.at(pointIndex).y)
-                //            .arg(vctDataPoint.at(pointIndex).x_en).arg(vctDataPoint.at(pointIndex).y_en)
-                //            .arg(vctDataPoint.at(pointIndex).a) << "\n";
-            }
-
-        } else {
-            qDebug() << "无法打开文件：" << file.errorString();
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QString errorMsg = QString("Open line data csv failed: %1, error=%2")
+                                   .arg(currentfileName)
+                                   .arg(file.errorString());
+            emit s_writeLog(errorMsg);
+            emit s_sendErrorMsg(0, errorMsg);
+            continue;
         }
 
+        QTextStream out(&file);
+        out << "x,y,x_en,y_en,top,bottom,thickness,zm\n";
+        const std::vector<DataPoint>& vctDataPoint = vctAllDataPointByLine.at(lineIndex);
+        for (int pointIndex = 0; pointIndex < static_cast<int>(vctDataPoint.size()); ++pointIndex) {
+            const DataPoint& point = vctDataPoint.at(pointIndex);
+            out << QString("%1,%2,%3,%4,%5,%6,%7,%8")
+                       .arg(point.x)
+                       .arg(point.y)
+                       .arg(point.x_en)
+                       .arg(point.y_en)
+                       .arg(point.a)
+                       .arg(point.b)
+                       .arg(point.t)
+                       .arg(point.zm) << "\n";
+        }
         file.close();
+        emit s_writeLog(QString("Saved line data csv: %1, points=%2")
+                            .arg(currentfileName)
+                            .arg(static_cast<int>(vctDataPoint.size())));
     }
 }
 

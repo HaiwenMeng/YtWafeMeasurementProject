@@ -13,6 +13,7 @@
 #include <QImage>
 #include <QAbstractItemView>
 #include <QLinearGradient>
+#include <QLibrary>
 #include <QMessageBox>
 #include <QMetaObject>
 #include <QPainter>
@@ -34,6 +35,7 @@
 #include <limits>
 #include <numeric>
 #include <utility>
+#include <vector>
 
 using namespace QtCharts;
 using namespace QtDataVisualization;
@@ -54,6 +56,36 @@ constexpr double kTwCircleCenterX = 122.25;
 constexpr double kTwCircleCenterY = 143.97;
 constexpr double kNjCircleCenterX = 142.322;
 constexpr double kNjCircleCenterY = 151.896;
+struct LegacyDataPoint
+{
+    double x;
+    double y;
+    double a;
+    double b;
+    double t;
+    double zm;
+    int x_en;
+    int y_en;
+};
+
+struct LegacyWarpResult
+{
+    double BOW;
+    double WARP;
+    double CENTER_THK;
+    double AVERAGE_THK;
+    double TTV;
+    double SORI;
+};
+
+static_assert(sizeof(LegacyDataPoint) == 56, "LegacyDataPoint ABI mismatch.");
+static_assert(sizeof(LegacyWarpResult) == 48, "LegacyWarpResult ABI mismatch.");
+
+using LegacyManualWarpAlg = LegacyWarpResult (*)(const LegacyDataPoint *, double *, int, double, double, double, int);
+using LegacyCalculateBow = double (*)(const LegacyDataPoint *, double *, int, double, double);
+using LegacyCalcuBowLine = double (*)(double *, double *, double *, float, int, double &, int);
+using LegacyCalculWarpSingleLine = int (*)(double *, double *, double *, double *, double &, int, int, double *, double *, double *, double *);
+using LegacyCalculWarpAllLine = int (*)(double *, double *, double *, double *, double &, double &, int, int, int);
 
 bool readyState(int state)
 {
@@ -70,6 +102,298 @@ bool validFinite(double value)
     return qIsFinite(value) && !qFuzzyIsNull(value);
 }
 
+LegacyDataPoint toLegacyDataPoint(const ProMeasurePoint &source)
+{
+    LegacyDataPoint point;
+    point.x = source.x;
+    point.y = source.y;
+    point.a = source.topDistance;
+    point.b = source.bottomDistance;
+    point.t = source.thickness;
+    point.zm = 0.0;
+    point.x_en = source.encoder;
+    point.y_en = source.encoder;
+    return point;
+}
+
+Wafer::AlgorithmResult legacyFailure(const QString &message)
+{
+    Wafer::AlgorithmResult result;
+    result.success = false;
+    result.errorMessage = message;
+    result.logs << message;
+    return result;
+}
+
+template<typename T>
+bool resolveLegacyFunction(QLibrary *library, const char *name, T *function, Wafer::AlgorithmResult *result)
+{
+    *function = reinterpret_cast<T>(library->resolve(name));
+    if (*function) {
+        return true;
+    }
+    const QString message = QStringLiteral("AlgApi function not found: %1").arg(QString::fromLatin1(name));
+    result->success = false;
+    result->errorMessage = message;
+    result->logs << message;
+    return false;
+}
+
+bool validLegacyResultValue(double value)
+{
+    return qIsFinite(value);
+}
+
+Wafer::AlgorithmResult runLegacyAlgApi(const ProRecipe &recipe, const ProRunResult &runResult, const Wafer::AlgorithmOptions &options, const std::function<void(const QString &)> &logger)
+{
+    Wafer::AlgorithmResult result;
+    result.success = false;
+    auto log = [&result, &logger](const QString &message) {
+        result.logs << message;
+        if (logger) {
+            logger(message);
+        }
+    };
+    auto fail = [&logger](const QString &message) {
+        if (logger) {
+            logger(message);
+        }
+        return legacyFailure(message);
+    };
+
+    const QString algPath = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("AlgApi.dll"));
+    QLibrary library(algPath);
+    if (!library.load()) {
+        return fail(QStringLiteral("Load AlgApi.dll failed: %1, %2").arg(algPath, library.errorString()));
+    }
+    log(QStringLiteral("Legacy AlgApi loaded: %1").arg(algPath));
+
+    LegacyManualWarpAlg manualWarpAlg = nullptr;
+    LegacyCalculateBow calculateBow = nullptr;
+    LegacyCalcuBowLine calcuBowLine = nullptr;
+    LegacyCalculWarpSingleLine calculWarpSingleLine = nullptr;
+    LegacyCalculWarpAllLine calculWarpAllLine = nullptr;
+    if (!resolveLegacyFunction(&library, "ManualWarpAlg", &manualWarpAlg, &result) ||
+        !resolveLegacyFunction(&library, "CalcuBowLine", &calcuBowLine, &result)) {
+        return result;
+    }
+    if (!options.useNewBowAlg && !resolveLegacyFunction(&library, "Calculate_Bow", &calculateBow, &result)) {
+        return result;
+    }
+    if (options.useNewWarpAlg &&
+        (!resolveLegacyFunction(&library, "CalculWarpSingleLine", &calculWarpSingleLine, &result) ||
+         !resolveLegacyFunction(&library, "CalculWarpAllLine", &calculWarpAllLine, &result))) {
+        return result;
+    }
+
+    std::vector<LegacyDataPoint> allData;
+    std::vector<double> allZGravity;
+    std::vector<std::vector<LegacyDataPoint>> lineData;
+    std::vector<std::vector<double>> lineZGravity;
+    LegacyDataPoint centerPoint{};
+    double centerZGravity = 0.0;
+    bool hasCenterPoint = false;
+
+    for (auto it = runResult.linePoints.constBegin(); it != runResult.linePoints.constEnd(); ++it) {
+        std::vector<LegacyDataPoint> legacyLine;
+        std::vector<double> legacyLineZGravity;
+        legacyLine.reserve(static_cast<size_t>(it.value().size()));
+        legacyLineZGravity.reserve(static_cast<size_t>(it.value().size()));
+        for (const ProMeasurePoint &source : it.value()) {
+            if (!source.hasZGravity || !validLegacyResultValue(source.zGravity)) {
+                return fail(QStringLiteral("Invalid zGravity for legacy AlgApi. line=%1 sample=%2").arg(it.key() + 1).arg(source.sampleIndex));
+            }
+            const LegacyDataPoint legacyPoint = toLegacyDataPoint(source);
+            legacyLine.push_back(legacyPoint);
+            legacyLineZGravity.push_back(source.zGravity);
+            if (source.isCenter) {
+                if (!hasCenterPoint) {
+                    centerPoint = legacyPoint;
+                    centerZGravity = source.zGravity;
+                    hasCenterPoint = true;
+                }
+            } else {
+                allData.push_back(legacyPoint);
+                allZGravity.push_back(source.zGravity);
+            }
+        }
+        if (legacyLine.empty()) {
+            return fail(QStringLiteral("Legacy AlgApi line has no points. line=%1").arg(it.key() + 1));
+        }
+        if (legacyLine.size() != legacyLineZGravity.size()) {
+            return fail(QStringLiteral("Legacy AlgApi line zGravity mismatch. line=%1").arg(it.key() + 1));
+        }
+        lineData.push_back(legacyLine);
+        lineZGravity.push_back(legacyLineZGravity);
+    }
+
+    if (!hasCenterPoint) {
+        return fail(QStringLiteral("Legacy AlgApi missing center point."));
+    }
+    allData.push_back(centerPoint);
+    allZGravity.push_back(centerZGravity);
+    if (allData.empty() || allData.size() != allZGravity.size()) {
+        return fail(QStringLiteral("Legacy AlgApi input mismatch. points=%1 zGravity=%2").arg(static_cast<int>(allData.size())).arg(static_cast<int>(allZGravity.size())));
+    }
+
+    log(QStringLiteral("Legacy AlgApi input: points=%1 lines=%2 zGravity=%3").arg(static_cast<int>(allData.size())).arg(static_cast<int>(lineData.size())).arg(static_cast<int>(allZGravity.size())));
+    log(QStringLiteral("Legacy ManualWarpAlg begin."));
+    LegacyWarpResult legacy = manualWarpAlg(allData.data(), allZGravity.data(), static_cast<int>(allData.size()), options.centerX, options.centerY, options.calibrationTotal, options.windowSize);
+    log(QStringLiteral("Legacy ManualWarpAlg end. BOW=%1 WARP=%2 CENTER_THK=%3 AVERAGE_THK=%4 TTV=%5 SORI=%6")
+            .arg(legacy.BOW, 0, 'g', 15)
+            .arg(legacy.WARP, 0, 'g', 15)
+            .arg(legacy.CENTER_THK, 0, 'g', 15)
+            .arg(legacy.AVERAGE_THK, 0, 'g', 15)
+            .arg(legacy.TTV, 0, 'g', 15)
+            .arg(legacy.SORI, 0, 'g', 15));
+    if (!validLegacyResultValue(legacy.BOW) || !validLegacyResultValue(legacy.WARP) || !validLegacyResultValue(legacy.CENTER_THK) || !validLegacyResultValue(legacy.AVERAGE_THK) || !validLegacyResultValue(legacy.TTV) || !validLegacyResultValue(legacy.SORI)) {
+        return fail(QStringLiteral("Legacy ManualWarpAlg returned invalid result."));
+    }
+
+    result.bow = legacy.BOW;
+    result.hasBow = true;
+    result.warp = legacy.WARP;
+    result.hasWarp = true;
+    result.centerThk = legacy.CENTER_THK;
+    result.hasCenterThk = true;
+    result.averageThk = legacy.AVERAGE_THK;
+    result.hasAverageThk = true;
+    result.ttv = legacy.TTV;
+    result.hasTtv = true;
+    result.sori = legacy.SORI;
+    result.hasSori = true;
+
+    if (!options.useNewBowAlg && calculateBow) {
+        log(QStringLiteral("Legacy Calculate_Bow begin."));
+        const double bow = calculateBow(allData.data(), allZGravity.data(), static_cast<int>(allData.size()), options.centerX, options.centerY);
+        log(QStringLiteral("Legacy Calculate_Bow end. BOW=%1").arg(bow, 0, 'g', 15));
+        if (!validLegacyResultValue(bow)) {
+            return fail(QStringLiteral("Legacy Calculate_Bow returned invalid result."));
+        }
+        result.bow = bow;
+    }
+
+    if (options.useNewBowAlg) {
+        bool hasLineBow = false;
+        double maxBow = 0.0;
+        for (int lineIndex = 0; lineIndex < static_cast<int>(lineData.size()); ++lineIndex) {
+            const std::vector<LegacyDataPoint> &points = lineData.at(static_cast<size_t>(lineIndex));
+            const std::vector<double> &zGravity = lineZGravity.at(static_cast<size_t>(lineIndex));
+            const int pointCount = static_cast<int>(points.size());
+            std::vector<double> xs;
+            std::vector<double> ys;
+            std::vector<double> zms;
+            xs.reserve(points.size());
+            ys.reserve(points.size());
+            zms.reserve(points.size());
+            for (int i = 0; i < pointCount; ++i) {
+                const LegacyDataPoint &point = points.at(static_cast<size_t>(i));
+                xs.push_back(point.x);
+                ys.push_back(point.y);
+                zms.push_back(((point.b - point.a) / 2.0) - zGravity.at(static_cast<size_t>(i)));
+            }
+            double lineBow = 0.0;
+            log(QStringLiteral("Legacy CalcuBowLine begin. line=%1 points=%2").arg(lineIndex + 1).arg(pointCount));
+            const double ret = calcuBowLine(xs.data(), ys.data(), zms.data(), static_cast<float>(options.radius * 2.0), pointCount, lineBow, 50);
+            log(QStringLiteral("Legacy CalcuBowLine end. line=%1 ret=%2 bow=%3").arg(lineIndex + 1).arg(ret, 0, 'g', 15).arg(lineBow, 0, 'g', 15));
+            Wafer::LineAlgorithmDetail detail;
+            detail.lineIndex = lineIndex;
+            detail.pointCount = pointCount;
+            if (ret > -1.0 && validLegacyResultValue(lineBow)) {
+                detail.bow = lineBow;
+                detail.hasBow = true;
+                if (!hasLineBow || qAbs(maxBow) < qAbs(lineBow)) {
+                    maxBow = lineBow;
+                }
+                hasLineBow = true;
+            } else {
+                detail.errorMessage = QStringLiteral("Legacy CalcuBowLine failed.");
+            }
+            result.lineDetails.append(detail);
+        }
+        if (!hasLineBow) {
+            return fail(QStringLiteral("Legacy CalcuBowLine produced no valid BOW."));
+        }
+        result.bow = maxBow;
+        result.hasBow = true;
+    }
+
+    if (options.useNewWarpAlg) {
+        const int sampleNum = 50;
+        std::vector<double> outAllXs;
+        std::vector<double> outAllYs;
+        std::vector<double> outAllZms;
+        std::vector<double> outAllTs;
+        bool hasLineWarp = false;
+        for (int lineIndex = 0; lineIndex < static_cast<int>(lineData.size()); ++lineIndex) {
+            const std::vector<LegacyDataPoint> &points = lineData.at(static_cast<size_t>(lineIndex));
+            const std::vector<double> &zGravity = lineZGravity.at(static_cast<size_t>(lineIndex));
+            const int pointCount = static_cast<int>(points.size());
+            std::vector<double> xs;
+            std::vector<double> ys;
+            std::vector<double> zms;
+            std::vector<double> ts;
+            xs.reserve(points.size());
+            ys.reserve(points.size());
+            zms.reserve(points.size());
+            ts.reserve(points.size());
+            for (int i = 0; i < pointCount; ++i) {
+                const LegacyDataPoint &point = points.at(static_cast<size_t>(i));
+                xs.push_back(point.x);
+                ys.push_back(point.y);
+                zms.push_back(((point.b - point.a) / 2.0) - zGravity.at(static_cast<size_t>(i)));
+                ts.push_back(point.t);
+            }
+            double lineWarp = 0.0;
+            std::vector<double> outXs(sampleNum + 1);
+            std::vector<double> outYs(sampleNum + 1);
+            std::vector<double> outZms(sampleNum + 1);
+            std::vector<double> outTs(sampleNum + 1);
+            log(QStringLiteral("Legacy CalculWarpSingleLine begin. line=%1 points=%2 sampleNum=%3").arg(lineIndex + 1).arg(pointCount).arg(sampleNum));
+            const int ret = calculWarpSingleLine(xs.data(), ys.data(), zms.data(), ts.data(), lineWarp, pointCount, sampleNum, outXs.data(), outYs.data(), outZms.data(), outTs.data());
+            log(QStringLiteral("Legacy CalculWarpSingleLine end. line=%1 ret=%2 warp=%3").arg(lineIndex + 1).arg(ret).arg(lineWarp, 0, 'g', 15));
+            if (ret > -1 && validLegacyResultValue(lineWarp)) {
+                hasLineWarp = true;
+                outAllXs.insert(outAllXs.end(), outXs.begin(), outXs.end());
+                outAllYs.insert(outAllYs.end(), outYs.begin(), outYs.end());
+                outAllZms.insert(outAllZms.end(), outZms.begin(), outZms.end());
+                outAllTs.insert(outAllTs.end(), outTs.begin(), outTs.end());
+                if (lineIndex < result.lineDetails.size()) {
+                    result.lineDetails[lineIndex].warp = lineWarp;
+                    result.lineDetails[lineIndex].hasWarp = true;
+                }
+            } else if (lineIndex < result.lineDetails.size()) {
+                result.lineDetails[lineIndex].errorMessage = QStringLiteral("Legacy CalculWarpSingleLine failed.");
+            }
+        }
+        if (!hasLineWarp || outAllXs.empty()) {
+            return fail(QStringLiteral("Legacy CalculWarpSingleLine produced no valid WARP."));
+        }
+        double warp = 0.0;
+        double sori = 0.0;
+        log(QStringLiteral("Legacy CalculWarpAllLine begin. points=%1 lines=%2 lineSampleNum=%3").arg(static_cast<int>(outAllXs.size())).arg(static_cast<int>(lineData.size())).arg(recipe.lineSampleNum));
+        const int ret = calculWarpAllLine(outAllXs.data(), outAllYs.data(), outAllZms.data(), outAllTs.data(), warp, sori, static_cast<int>(outAllXs.size()), static_cast<int>(lineData.size()), recipe.lineSampleNum);
+        log(QStringLiteral("Legacy CalculWarpAllLine end. ret=%1 warp=%2 sori=%3").arg(ret).arg(warp, 0, 'g', 15).arg(sori, 0, 'g', 15));
+        if (ret <= -1 || !validLegacyResultValue(warp) || !validLegacyResultValue(sori)) {
+            return fail(QStringLiteral("Legacy CalculWarpAllLine returned invalid result."));
+        }
+        result.warp = warp;
+        result.sori = sori;
+        result.hasWarp = true;
+        result.hasSori = true;
+    }
+
+    result.success = true;
+    result.errorMessage.clear();
+    log(QStringLiteral("Legacy AlgApi finished. BOW=%1 WARP=%2 CENTER_THK=%3 AVERAGE_THK=%4 TTV=%5 SORI=%6")
+                       .arg(result.bow, 0, 'g', 15)
+                       .arg(result.warp, 0, 'g', 15)
+                       .arg(result.centerThk, 0, 'g', 15)
+                       .arg(result.averageThk, 0, 'g', 15)
+                       .arg(result.ttv, 0, 'g', 15)
+                       .arg(result.sori, 0, 'g', 15));
+    return result;
+}
 bool centerForRecipe(const ProRecipe &recipe, const ParamSettings &settings, double *centerX, double *centerY, QString *errorMessage)
 {
     Q_UNUSED(recipe);
@@ -863,18 +1187,25 @@ void MainWindow::onMeasureClicked()
     m_future = QtConcurrent::run([this, recipe]() {
         ProRunResult result;
         QString error;
+        auto liveLog = [this](const QString &message) {
+            if (QThread::currentThread() == thread()) {
+                appendLog(message);
+            } else {
+                QMetaObject::invokeMethod(this, [this, message]() { appendLog(message); }, Qt::BlockingQueuedConnection);
+            }
+        };
         bool ok = scanRecipeLines(recipe, false, &result, &error);
         if (ok) {
-            Wafer::WaferDataset dataset = buildDataset(recipe, result);
-            Wafer::WaferAlgorithm algorithm;
-            result.algorithm = algorithm.runAll(dataset, algorithmOptions(recipe));
+            result.algorithm = runLegacyAlgApi(recipe, result, algorithmOptions(recipe), liveLog);
             if (!result.algorithm.success) {
                 ok = false;
                 error = result.algorithm.errorMessage;
             }
         }
         if (ok) {
+            liveLog(QStringLiteral("Write result files begin."));
             ok = writeResultFiles(&result, &error);
+            liveLog(ok ? QStringLiteral("Write result files end.") : QStringLiteral("Write result files failed: %1").arg(error));
         }
         const bool canceled = m_stopRequested;
         QString loadError;
@@ -2191,21 +2522,32 @@ bool MainWindow::writeSummaryCsv(const QString &path, const ProRunResult &runRes
 
 void MainWindow::finishRunOnUi(const ProRunResult &runResult, const QString &message)
 {
+    appendLog(QStringLiteral("Finish UI update begin."));
+    appendLog(QStringLiteral("Update thickness curve begin."));
     updateCurve(runResult.linePoints.isEmpty() ? QVector<ProMeasurePoint>() : curvePreviewPoints(runResult.linePoints.last()));
+    appendLog(QStringLiteral("Update thickness curve end."));
+    appendLog(QStringLiteral("Update 2D heat map begin."));
     updateHeatMap(runResult);
+    appendLog(QStringLiteral("Update 2D heat map end."));
+    appendLog(QStringLiteral("Update 3D surface begin."));
     updateSurface(runResult);
+    appendLog(QStringLiteral("Update 3D surface end."));
     updateResultTable(runResult);
     QString imageError;
+    appendLog(QStringLiteral("Save heat map image begin."));
     QPixmap heatPixmap = ui->label_heatmap->grab();
     if (!heatPixmap.save(runResult.heatImagePath)) {
         imageError = QStringLiteral("Save heat map image failed: %1").arg(runResult.heatImagePath);
     }
+    appendLog(QStringLiteral("Save heat map image end."));
+    appendLog(QStringLiteral("Save surface image begin."));
     QPixmap surfacePixmap = ui->widget_surface->grab();
     if (!surfacePixmap.save(runResult.surfaceImagePath)) {
         imageError = imageError.isEmpty()
             ? QStringLiteral("Save surface image failed: %1").arg(runResult.surfaceImagePath)
             : QStringLiteral("%1; Save surface image failed: %2").arg(imageError, runResult.surfaceImagePath);
     }
+    appendLog(QStringLiteral("Save surface image end."));
     appendLog(message);
     appendLog(QStringLiteral("Result saved: %1").arg(runResult.outputDir));
     if (!imageError.isEmpty()) {
@@ -2246,8 +2588,16 @@ void MainWindow::updateCurve(const QVector<ProMeasurePoint> &linePoints)
 
 void MainWindow::updateHeatMap(const ProRunResult &runResult)
 {
-    if (runResult.points.isEmpty()) {
+    QVector<ProMeasurePoint> drawPoints;
+    drawPoints.reserve(runResult.points.size());
+    for (const ProMeasurePoint &point : runResult.points) {
+        if (qIsFinite(point.x) && qIsFinite(point.y) && qIsFinite(point.thickness)) {
+            drawPoints.append(point);
+        }
+    }
+    if (drawPoints.isEmpty()) {
         ui->label_heatmap->setText(QStringLiteral("2D"));
+        appendLog(QStringLiteral("Skip 2D heat map: no valid measurement points."));
         return;
     }
     const int width = qMax(320, ui->label_heatmap->width());
@@ -2255,9 +2605,9 @@ void MainWindow::updateHeatMap(const ProRunResult &runResult)
     QImage image(width, height, QImage::Format_RGB32);
     image.fill(Qt::white);
 
-    auto mmX = std::minmax_element(runResult.points.constBegin(), runResult.points.constEnd(), [](const ProMeasurePoint &a, const ProMeasurePoint &b) { return a.x < b.x; });
-    auto mmY = std::minmax_element(runResult.points.constBegin(), runResult.points.constEnd(), [](const ProMeasurePoint &a, const ProMeasurePoint &b) { return a.y < b.y; });
-    auto mmT = std::minmax_element(runResult.points.constBegin(), runResult.points.constEnd(), [](const ProMeasurePoint &a, const ProMeasurePoint &b) { return a.thickness < b.thickness; });
+    auto mmX = std::minmax_element(drawPoints.constBegin(), drawPoints.constEnd(), [](const ProMeasurePoint &a, const ProMeasurePoint &b) { return a.x < b.x; });
+    auto mmY = std::minmax_element(drawPoints.constBegin(), drawPoints.constEnd(), [](const ProMeasurePoint &a, const ProMeasurePoint &b) { return a.y < b.y; });
+    auto mmT = std::minmax_element(drawPoints.constBegin(), drawPoints.constEnd(), [](const ProMeasurePoint &a, const ProMeasurePoint &b) { return a.thickness < b.thickness; });
     const double minX = mmX.first->x;
     const double maxX = mmX.second->x;
     const double minY = mmY.first->y;
@@ -2267,7 +2617,7 @@ void MainWindow::updateHeatMap(const ProRunResult &runResult)
 
     QPainter painter(&image);
     painter.setRenderHint(QPainter::Antialiasing);
-    for (const ProMeasurePoint &point : runResult.points) {
+    for (const ProMeasurePoint &point : drawPoints) {
         const double tx = qFuzzyCompare(maxX, minX) ? 0.5 : (point.x - minX) / (maxX - minX);
         const double ty = qFuzzyCompare(maxY, minY) ? 0.5 : (point.y - minY) / (maxY - minY);
         const double tt = qFuzzyCompare(maxT, minT) ? 0.5 : (point.thickness - minT) / (maxT - minT);
@@ -2289,23 +2639,53 @@ void MainWindow::updateSurface(const ProRunResult &runResult)
     if (runResult.linePoints.isEmpty()) {
         return;
     }
-    QSurfaceDataArray *data = new QSurfaceDataArray;
-    data->reserve(runResult.linePoints.size());
+
+    QVector<QVector<ProMeasurePoint>> displayLines;
+    int maxPointCount = 0;
     for (auto it = runResult.linePoints.constBegin(); it != runResult.linePoints.constEnd(); ++it) {
-        QSurfaceDataRow *row = new QSurfaceDataRow;
-        row->reserve(it.value().size());
+        QVector<ProMeasurePoint> validLine;
+        validLine.reserve(it.value().size());
         for (const ProMeasurePoint &point : it.value()) {
+            if (qIsFinite(point.x) && qIsFinite(point.y) && qIsFinite(point.thickness)) {
+                validLine.append(point);
+            }
+        }
+        if (!validLine.isEmpty()) {
+            maxPointCount = qMax(maxPointCount, validLine.size());
+            displayLines.append(validLine);
+        }
+    }
+
+    const int columnCount = qMin(500, maxPointCount);
+    if (displayLines.size() < 2 || columnCount < 2) {
+        appendLog(QStringLiteral("Skip 3D surface: insufficient valid measurement grid. lines=%1 columns=%2").arg(displayLines.size()).arg(columnCount));
+        return;
+    }
+
+    QSurfaceDataArray *data = new QSurfaceDataArray;
+    data->reserve(displayLines.size());
+    for (const QVector<ProMeasurePoint> &line : displayLines) {
+        QSurfaceDataRow *row = new QSurfaceDataRow;
+        row->reserve(columnCount);
+        for (int column = 0; column < columnCount; ++column) {
+            const int index = qMin(line.size() - 1, qRound(double(column) * double(line.size() - 1) / double(columnCount - 1)));
+            const ProMeasurePoint &point = line.at(index);
             row->append(QSurfaceDataItem(QVector3D(point.x, point.thickness, point.y)));
         }
         data->append(row);
     }
+    if (data->isEmpty()) {
+        delete data;
+        appendLog(QStringLiteral("Skip 3D surface: empty display data."));
+        return;
+    }
+
     QSurfaceDataProxy *proxy = new QSurfaceDataProxy;
     proxy->resetArray(data);
     QSurface3DSeries *series = new QSurface3DSeries(proxy);
     series->setDrawMode(QSurface3DSeries::DrawSurfaceAndWireframe);
     m_surface->addSeries(series);
 }
-
 void MainWindow::updateResultTable(const ProRunResult &runResult)
 {
     const Wafer::AlgorithmResult &r = runResult.algorithm;
