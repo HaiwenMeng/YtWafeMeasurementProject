@@ -37,6 +37,7 @@ private slots:
     void onSetVelocityClicked();
     void onLineMoveClicked();
     void onStopLineClicked();
+    void onQueueTestClicked();
     void onSetTriggerClicked();
     void onTriggerOnClicked();
     void onTriggerOffClicked();

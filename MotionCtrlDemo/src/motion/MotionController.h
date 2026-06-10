@@ -53,6 +53,9 @@ public:
     bool moveSingleAxisIncremental(int axis, double distance);
     bool moveSingleAxisContinuous(int axis, int direction);
     bool moveMultiAxisLinear(double posX, double posY, double velocity, double acceleration, double deceleration);
+    bool testLineXyQueue(double firstX, double firstY,
+                         double secondX, double secondY,
+                         double velocity, double acceleration, double deceleration);
     bool setVelocity(int axis, double velocity, double acceleration, double deceleration);
     bool readRealTimePos();
     bool readRealTimeStatus();

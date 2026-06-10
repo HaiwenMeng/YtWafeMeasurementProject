@@ -204,6 +204,34 @@ bool MotionController::moveMultiAxisLinear(double posX, double posY, double velo
     return sendCommand(commandLineXy(CmdLineXy, posX, posY, velocity, acceleration, deceleration));
 }
 
+bool MotionController::testLineXyQueue(double firstX, double firstY,
+                                       double secondX, double secondY,
+                                       double velocity, double acceleration, double deceleration)
+{
+    if (!qIsFinite(firstX) || !qIsFinite(firstY) ||
+        !qIsFinite(secondX) || !qIsFinite(secondY)) {
+        emit errorMessage(tr("Queue test target position is not a finite number."));
+        return false;
+    }
+    if (!validatePositive("Queue test velocity", velocity) ||
+        !validatePositive("Queue test acceleration", acceleration) ||
+        !validatePositive("Queue test deceleration", deceleration)) {
+        return false;
+    }
+    if (!ensureConnected("testLineXyQueue")) {
+        return false;
+    }
+    if (!ensureAxisReady(AxisX, "testLineXyQueue") ||
+        !ensureAxisReady(AxisY, "testLineXyQueue")) {
+        return false;
+    }
+
+    QStringList commands;
+    commands << commandLineXy(CmdLineXy, firstX, firstY, velocity, acceleration, deceleration)
+             << commandLineXy(CmdLineXy, secondX, secondY, velocity, acceleration, deceleration);
+    return sendCommands(commands);
+}
+
 bool MotionController::setVelocity(int axis, double velocity, double acceleration, double deceleration)
 {
     if (!ensureKnownAxis(axis, "setVelocity")) {

@@ -505,6 +505,99 @@
          </widget>
         </item>
         <item>
+         <widget class="QGroupBox" name="queueTestGroup">
+          <property name="title">
+           <string>队列测试</string>
+          </property>
+          <layout class="QGridLayout" name="queueTestLayout">
+           <item row="0" column="0">
+            <widget class="QLabel" name="queueFirstXLabel">
+             <property name="text">
+              <string>第一段 X</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QDoubleSpinBox" name="queueFirstXSpin"/>
+           </item>
+           <item row="0" column="2">
+            <widget class="QLabel" name="queueFirstYLabel">
+             <property name="text">
+              <string>第一段 Y</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="3">
+            <widget class="QDoubleSpinBox" name="queueFirstYSpin"/>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="queueSecondXLabel">
+             <property name="text">
+              <string>第二段 X</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QDoubleSpinBox" name="queueSecondXSpin"/>
+           </item>
+           <item row="1" column="2">
+            <widget class="QLabel" name="queueSecondYLabel">
+             <property name="text">
+              <string>第二段 Y</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="3">
+            <widget class="QDoubleSpinBox" name="queueSecondYSpin"/>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="queueVelocityLabel">
+             <property name="text">
+              <string>速度</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QDoubleSpinBox" name="queueVelocitySpin"/>
+           </item>
+           <item row="2" column="2">
+            <widget class="QLabel" name="queueAccelerationLabel">
+             <property name="text">
+              <string>加速度</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="3">
+            <widget class="QDoubleSpinBox" name="queueAccelerationSpin"/>
+           </item>
+           <item row="2" column="4">
+            <widget class="QLabel" name="queueDecelerationLabel">
+             <property name="text">
+              <string>减速度</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="5">
+            <widget class="QDoubleSpinBox" name="queueDecelerationSpin"/>
+           </item>
+           <item row="3" column="0" colspan="4">
+            <widget class="QLabel" name="queueTestHintLabel">
+             <property name="text">
+              <string>先确认安全区域, 本测试会连续发送两条 #linexy, 不等待第一段到位</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="4" colspan="2">
+            <widget class="QPushButton" name="queueTestButton">
+             <property name="text">
+              <string>连续发送两段</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
          <widget class="QGroupBox" name="triggerGroup">
           <property name="title">
            <string>触发测试</string>

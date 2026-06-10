@@ -172,6 +172,25 @@ void MainWindow::onStopLineClicked()
     m_controller.abortAxes();
 }
 
+void MainWindow::onQueueTestClicked()
+{
+    if (!ensurePositive(ui->queueVelocitySpin, QString(u8"队列测试速度")) ||
+        !ensurePositive(ui->queueAccelerationSpin, QString(u8"队列测试加速度")) ||
+        !ensurePositive(ui->queueDecelerationSpin, QString(u8"队列测试减速度"))) {
+        return;
+    }
+
+    appendLog(QString(u8"队列测试开始: 连续发送两条 #linexy, 不等待第一段到位."));
+    appendLog(QString(u8"请观察第二条是否被接受, 以及拐角处是否停顿."));
+    m_controller.testLineXyQueue(ui->queueFirstXSpin->value(),
+                                 ui->queueFirstYSpin->value(),
+                                 ui->queueSecondXSpin->value(),
+                                 ui->queueSecondYSpin->value(),
+                                 ui->queueVelocitySpin->value(),
+                                 ui->queueAccelerationSpin->value(),
+                                 ui->queueDecelerationSpin->value());
+}
+
 void MainWindow::onSetTriggerClicked()
 {
     Motion::TriggerParam param;
@@ -305,6 +324,13 @@ void MainWindow::initUiState()
     initDoubleSpin(ui->lineVelocitySpin, 0.001, 1000000.0, 10.0);
     initDoubleSpin(ui->lineAccelerationSpin, 0.001, 1000000.0, 100.0);
     initDoubleSpin(ui->lineDecelerationSpin, 0.001, 1000000.0, 100.0);
+    initDoubleSpin(ui->queueFirstXSpin, -1000000.0, 1000000.0, 70.0);
+    initDoubleSpin(ui->queueFirstYSpin, -1000000.0, 1000000.0, 60.0);
+    initDoubleSpin(ui->queueSecondXSpin, -1000000.0, 1000000.0, 70.0);
+    initDoubleSpin(ui->queueSecondYSpin, -1000000.0, 1000000.0, 70.0);
+    initDoubleSpin(ui->queueVelocitySpin, 0.001, 1000000.0, 10.0);
+    initDoubleSpin(ui->queueAccelerationSpin, 0.001, 1000000.0, 100.0);
+    initDoubleSpin(ui->queueDecelerationSpin, 0.001, 1000000.0, 100.0);
     initDoubleSpin(ui->triggerStartSpin, -1000000.0, 1000000.0, 0.0);
     initDoubleSpin(ui->triggerEndSpin, -1000000.0, 1000000.0, 10.0);
     initDoubleSpin(ui->triggerIntervalSpin, 0.001, 1000000.0, 1.0);
@@ -339,6 +365,14 @@ void MainWindow::initUiState()
         ui->lineDecelerationSpin,
         ui->lineMoveButton,
         ui->stopLineButton,
+        ui->queueFirstXSpin,
+        ui->queueFirstYSpin,
+        ui->queueSecondXSpin,
+        ui->queueSecondYSpin,
+        ui->queueVelocitySpin,
+        ui->queueAccelerationSpin,
+        ui->queueDecelerationSpin,
+        ui->queueTestButton,
         ui->triggerAxisCombo,
         ui->triggerStartSpin,
         ui->triggerEndSpin,
@@ -375,6 +409,7 @@ void MainWindow::connectUiSignals()
     connect(ui->setVelocityButton, &QPushButton::clicked, this, &MainWindow::onSetVelocityClicked);
     connect(ui->lineMoveButton, &QPushButton::clicked, this, &MainWindow::onLineMoveClicked);
     connect(ui->stopLineButton, &QPushButton::clicked, this, &MainWindow::onStopLineClicked);
+    connect(ui->queueTestButton, &QPushButton::clicked, this, &MainWindow::onQueueTestClicked);
     connect(ui->setTriggerButton, &QPushButton::clicked, this, &MainWindow::onSetTriggerClicked);
     connect(ui->triggerOnButton, &QPushButton::clicked, this, &MainWindow::onTriggerOnClicked);
     connect(ui->triggerOffButton, &QPushButton::clicked, this, &MainWindow::onTriggerOffClicked);
