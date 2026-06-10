@@ -606,6 +606,13 @@ bool ColorFocusControl::SetEncoderTriggerParam(int head, int tail, int interval,
                             static_cast<BYTE>(direction))) {
         return reportSdkFailure("CCS_SetEcdTrgParam");
     }
+    reportLog(QString("Sensor %1 encoderTrigger head=%2 tail=%3 interval=%4 encoder=%5 direction=%6")
+              .arg(m_sensorId)
+              .arg(head)
+              .arg(tail)
+              .arg(interval)
+              .arg(encoderSelect)
+              .arg(direction));
     return true;
 }
 
@@ -896,25 +903,28 @@ void ColorFocusControl::PollCurrentSample()
 {
     float distance = 0.0f;
     float intensity = 0.0f;
-    if (!CCS_GetCurrentDistanceData(m_sensorId, &distance, &intensity)) {
-        reportSdkFailure("CCS_GetCurrentDistanceData");
+    INT32 encoder1 = 0;
+    INT32 encoder2 = 0;
+    INT32 encoder3 = 0;
+    if (!CCS_GetCurrentDistanceAndEcdData(m_sensorId, &distance, &intensity, &encoder1, &encoder2, &encoder3)) {
+        reportSdkFailure("CCS_GetCurrentDistanceAndEcdData");
         StopAcquisition();
         return;
     }
-    emit sampleUpdated(m_sensorId, distance, intensity, 0, 0, 0);
+    emit sampleUpdated(m_sensorId, distance, intensity, encoder1, encoder2, encoder3);
     emit s_colorFocusUpdated(m_sensorId, distance, intensity);
 }
 
 void ColorFocusControl::RunDataRead()
 {
-    float currentDistance[1] = {0.0f};
-    float currentIntensity[1] = {0.0f};
-
     while (m_readThreadRunning.load()) {
-        if (CCS_GetCurrentDistanceData(m_sensorId, currentDistance, currentIntensity)) {
+        float distance = 0.0f;
+        float intensity = 0.0f;
+        INT32 encoder1 = 0;
+        INT32 encoder2 = 0;
+        INT32 encoder3 = 0;
+        if (CCS_GetCurrentDistanceAndEcdData(m_sensorId, &distance, &intensity, &encoder1, &encoder2, &encoder3)) {
             const UINT16 sensorId = m_sensorId;
-            const float distance = currentDistance[0];
-            const float intensity = currentIntensity[0];
             if (!validLatestSample(distance, intensity)) {
                 m_hasLatestSample.store(false);
                 Sleep(static_cast<DWORD>(m_pollIntervalMs));
@@ -925,13 +935,13 @@ void ColorFocusControl::RunDataRead()
             m_latestIntensity.store(intensity);
             m_hasLatestSample.store(true);
 
-            QMetaObject::invokeMethod(this, [this, sensorId, distance, intensity]() {
-                emit sampleUpdated(sensorId, distance, intensity, 0, 0, 0);
+            QMetaObject::invokeMethod(this, [this, sensorId, distance, intensity, encoder1, encoder2, encoder3]() {
+                emit sampleUpdated(sensorId, distance, intensity, encoder1, encoder2, encoder3);
                 emit s_colorFocusUpdated(sensorId, distance, intensity);
             }, Qt::QueuedConnection);
         } else {
             m_hasLatestSample.store(false);
-            reportSdkFailure("CCS_GetCurrentDistanceData");
+            reportSdkFailure("CCS_GetCurrentDistanceAndEcdData");
             break;
         }
 
